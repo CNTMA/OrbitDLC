@@ -18,14 +18,19 @@
 	"entrypoints": {
 		"main": [
 			"com.orbitdlc.OrbitDLC"
+		],
+		"client": [
+			"com.orbitdlc.client.OrbitDLCClient"
 		]
 	},
+	"accessWidener": "orbitdlc.accesswidener",
 	"mixins": [
-		"orbitdlc.mixins.json"
+		"orbitdlc.mixins.json",
+		{"config":"orbitdlc.client.mixins.json","environment":"client"}
 	],
 	"depends": {
 		"fabricloader": ">=0.19.3",
-		"minecraft": "~26.2",
+		"minecraft": "~26.3",
 		"java": ">=25",
 		"fabric-api": "*"
 	}

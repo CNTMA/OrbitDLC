@@ -1,0 +1,808 @@
+{
+ "atlas": {
+  "type": "mtsdf",
+  "width": 528,
+  "height": 704,
+  "yOrigin": "top",
+  "pxRange": 6,
+  "glyphSize": 74,
+  "cellSize": 88,
+  "cols": 6,
+  "rows": 8,
+  "source": "subset of LucideMTSDF: lucide official vectors, FULL-BLEED, MAX quality: 5x SS, BOX, range 6",
+  "render": "SDF replicated to RGB, median-compat",
+  "range": "custom letters"
+ },
+ "metrics": {
+  "emSize": 1024,
+  "lineHeight": 1024,
+  "ascender": 1024,
+  "descender": 0,
+  "advance": 1.0
+ },
+ "glyphs": [
+  {
+   "unicode": 65,
+   "name": "lucide_swords",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 0,
+    "bottom": 0,
+    "right": 88,
+    "top": 88
+   }
+  },
+  {
+   "unicode": 66,
+   "name": "lucide_footprints",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 88,
+    "bottom": 0,
+    "right": 176,
+    "top": 88
+   }
+  },
+  {
+   "unicode": 67,
+   "name": "lucide_monitor",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 176,
+    "bottom": 0,
+    "right": 264,
+    "top": 88
+   }
+  },
+  {
+   "unicode": 68,
+   "name": "lucide_user",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 264,
+    "bottom": 0,
+    "right": 352,
+    "top": 88
+   }
+  },
+  {
+   "unicode": 69,
+   "name": "lucide_layout-grid",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 352,
+    "bottom": 0,
+    "right": 440,
+    "top": 88
+   }
+  },
+  {
+   "unicode": 70,
+   "name": "lucide_folder",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 440,
+    "bottom": 0,
+    "right": 528,
+    "top": 88
+   }
+  },
+  {
+   "unicode": 71,
+   "name": "lucide_users",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 0,
+    "bottom": 88,
+    "right": 88,
+    "top": 176
+   }
+  },
+  {
+   "unicode": 72,
+   "name": "lucide_shirt",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 88,
+    "bottom": 88,
+    "right": 176,
+    "top": 176
+   }
+  },
+  {
+   "unicode": 73,
+   "name": "lucide_square-terminal",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 176,
+    "bottom": 88,
+    "right": 264,
+    "top": 176
+   }
+  },
+  {
+   "unicode": 74,
+   "name": "lucide_layout-dashboard",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 264,
+    "bottom": 88,
+    "right": 352,
+    "top": 176
+   }
+  },
+  {
+   "unicode": 77,
+   "name": "lucide_search",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 352,
+    "bottom": 88,
+    "right": 440,
+    "top": 176
+   }
+  },
+  {
+   "unicode": 78,
+   "name": "logo",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 440,
+    "bottom": 88,
+    "right": 528,
+    "top": 176
+   }
+  },
+  {
+   "unicode": 79,
+   "name": "lucide_chevron-down",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 0,
+    "bottom": 176,
+    "right": 88,
+    "top": 264
+   }
+  },
+  {
+   "unicode": 80,
+   "name": "lucide_chevron-up",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 88,
+    "bottom": 176,
+    "right": 176,
+    "top": 264
+   }
+  },
+  {
+   "unicode": 81,
+   "name": "lucide_check",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 176,
+    "bottom": 176,
+    "right": 264,
+    "top": 264
+   }
+  },
+  {
+   "unicode": 84,
+   "name": "lucide_clock",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 264,
+    "bottom": 176,
+    "right": 352,
+    "top": 264
+   }
+  },
+  {
+   "unicode": 85,
+   "name": "lucide_map-pin",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 352,
+    "bottom": 176,
+    "right": 440,
+    "top": 264
+   }
+  },
+  {
+   "unicode": 86,
+   "name": "lucide_gauge",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 440,
+    "bottom": 176,
+    "right": 528,
+    "top": 264
+   }
+  },
+  {
+   "unicode": 87,
+   "name": "lucide_activity",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 0,
+    "bottom": 264,
+    "right": 88,
+    "top": 352
+   }
+  },
+  {
+   "unicode": 88,
+   "name": "lucide_flask-conical",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 88,
+    "bottom": 264,
+    "right": 176,
+    "top": 352
+   }
+  },
+  {
+   "unicode": 89,
+   "name": "lucide_wind",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 176,
+    "bottom": 264,
+    "right": 264,
+    "top": 352
+   }
+  },
+  {
+   "unicode": 90,
+   "name": "lucide_dumbbell",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 264,
+    "bottom": 264,
+    "right": 352,
+    "top": 352
+   }
+  },
+  {
+   "unicode": 97,
+   "name": "lucide_timer",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 352,
+    "bottom": 264,
+    "right": 440,
+    "top": 352
+   }
+  },
+  {
+   "unicode": 98,
+   "name": "lucide_hourglass",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 440,
+    "bottom": 264,
+    "right": 528,
+    "top": 352
+   }
+  },
+  {
+   "unicode": 99,
+   "name": "lucide_keyboard",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 0,
+    "bottom": 352,
+    "right": 88,
+    "top": 440
+   }
+  },
+  {
+   "unicode": 100,
+   "name": "lucide_crosshair",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 88,
+    "bottom": 352,
+    "right": 176,
+    "top": 440
+   }
+  },
+  {
+   "unicode": 101,
+   "name": "lucide_gem",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 176,
+    "bottom": 352,
+    "right": 264,
+    "top": 440
+   }
+  },
+  {
+   "unicode": 102,
+   "name": "lucide_feather",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 264,
+    "bottom": 352,
+    "right": 352,
+    "top": 440
+   }
+  },
+  {
+   "unicode": 103,
+   "name": "lucide_hard-hat",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 352,
+    "bottom": 352,
+    "right": 440,
+    "top": 440
+   }
+  },
+  {
+   "unicode": 104,
+   "name": "lucide_shield",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 440,
+    "bottom": 352,
+    "right": 528,
+    "top": 440
+   }
+  },
+  {
+   "unicode": 105,
+   "name": "lucide_sport-shoe",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 0,
+    "bottom": 440,
+    "right": 88,
+    "top": 528
+   }
+  },
+  {
+   "unicode": 106,
+   "name": "lucide_coins",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 88,
+    "bottom": 440,
+    "right": 176,
+    "top": 528
+   }
+  },
+  {
+   "unicode": 107,
+   "name": "lucide_skull",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 176,
+    "bottom": 440,
+    "right": 264,
+    "top": 528
+   }
+  },
+  {
+   "unicode": 108,
+   "name": "lucide_globe",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 264,
+    "bottom": 440,
+    "right": 352,
+    "top": 528
+   }
+  },
+  {
+   "unicode": 109,
+   "name": "lucide_heart",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 352,
+    "bottom": 440,
+    "right": 440,
+    "top": 528
+   }
+  },
+  {
+   "unicode": 110,
+   "name": "lucide_grid-3x3",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 440,
+    "bottom": 440,
+    "right": 528,
+    "top": 528
+   }
+  },
+  {
+   "unicode": 111,
+   "name": "lucide_move",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 0,
+    "bottom": 528,
+    "right": 88,
+    "top": 616
+   }
+  },
+  {
+   "unicode": 112,
+   "name": "lucide_plane",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 88,
+    "bottom": 528,
+    "right": 176,
+    "top": 616
+   }
+  },
+  {
+   "unicode": 113,
+   "name": "lucide_zap",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 176,
+    "bottom": 528,
+    "right": 264,
+    "top": 616
+   }
+  },
+  {
+   "unicode": 114,
+   "name": "lucide_target",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 264,
+    "bottom": 528,
+    "right": 352,
+    "top": 616
+   }
+  },
+  {
+   "unicode": 115,
+   "name": "lucide_settings",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 352,
+    "bottom": 528,
+    "right": 440,
+    "top": 616
+   }
+  },
+  {
+   "unicode": 75,
+   "name": "lucide_bot",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 440,
+    "bottom": 528,
+    "right": 528,
+    "top": 616
+   }
+  },
+  {
+   "unicode": 76,
+   "name": "lucide_store",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 0,
+    "bottom": 616,
+    "right": 88,
+    "top": 704
+   }
+  },
+  {
+   "unicode": 82,
+   "name": "lucide_wand-sparkles",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 88,
+    "bottom": 616,
+    "right": 176,
+    "top": 704
+   }
+  },
+  {
+   "unicode": 83,
+   "name": "lucide_shopping-bag",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 176,
+    "bottom": 616,
+    "right": 264,
+    "top": 704
+   }
+  },
+  {
+   "unicode": 117,
+   "name": "lucide_palette",
+   "advance": 1.0,
+   "planeBounds": {
+    "left": 0.0,
+    "bottom": 0.0,
+    "right": 1.0,
+    "top": 1.0
+   },
+   "atlasBounds": {
+    "left": 264,
+    "bottom": 616,
+    "right": 352,
+    "top": 704
+   }
+  }
+ ],
+ "kerning": []
+}
