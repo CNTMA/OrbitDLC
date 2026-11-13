@@ -20,7 +20,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class DiscordRPC {
-    private static final long APP_ID = 1570466372218261606L;
+    private static final long APP_ID = 1570866839452389497L;
     private static final Gson GSON = new Gson();
     private static final ScheduledExecutorService SCHEDULER = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "Discord-RPC");
