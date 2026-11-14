@@ -51,7 +51,6 @@ public final class PlannedModule extends Module {
             new PlannedModule("shooting_stars", Category.VISUALS),
             new PlannedModule("custom_clouds", Category.VISUALS),
             new PlannedModule("cloud_animation", Category.VISUALS),
-            new PlannedModule("custom_fog", Category.VISUALS),
             new PlannedModule("fog_color", Category.VISUALS),
             new PlannedModule("fog_distance", Category.VISUALS),
             new PlannedModule("world_color", Category.VISUALS),

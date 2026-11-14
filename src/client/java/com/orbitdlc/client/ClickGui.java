@@ -191,6 +191,7 @@ public final class ClickGui extends Screen {
                     case ShaderSky sky -> sky.settings(ClickGui.this);
                     case ShaderHand hand -> hand.settings(ClickGui.this);
                     case Beautiful beautiful -> beautiful.settings(ClickGui.this);
+                    case CustomFog fog -> fog.settings(ClickGui.this);
                     case Ambience ambience -> ambience.settings(ClickGui.this);
                     case GuiHud hud -> hud.settings(ClickGui.this);
                     case JumpCircles circles -> circles.settings(ClickGui.this);

@@ -2,6 +2,7 @@ package com.orbitdlc.client.mixin;
 
 import com.orbitdlc.client.WetReflections;
 import com.orbitdlc.client.Beautiful;
+import com.orbitdlc.client.CustomFog;
 import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,5 +17,6 @@ abstract class WetWorldMixin {
         var renderer = (GameRenderer) (Object) this;
         WetReflections.apply(renderer.mainRenderTarget(), renderer.mainCamera());
         Beautiful.render(renderer.mainRenderTarget(), renderer.mainCamera());
+        CustomFog.render(renderer.mainRenderTarget(), renderer.mainCamera());
     }
 }
