@@ -54,7 +54,8 @@ final class WorldParticles extends Module {
         var halo = atlas.getSprite(OrbitDLC.id("world_particles/firefly"));
         var center = client.player.position();
         var random = ThreadLocalRandom.current();
-        for (int i = 0; i < amount; i++) {
+        int budget = Optimization.level() >= 3 ? 0 : amount >> Optimization.level();
+        for (int i = 0; i < budget; i++) {
             double angle = random.nextDouble(Math.TAU);
             double radius = distance * Math.sqrt(random.nextDouble());
             double x = center.x + Math.cos(angle) * radius;
@@ -78,7 +79,7 @@ final class WorldParticles extends Module {
         return lights.size();
     }
 
-    int tint() { return color.rgb; }
+    int tint() { return color.renderColor(); }
 
     @Override
     public com.google.gson.JsonObject saveSettings() {
@@ -152,6 +153,12 @@ final class WorldParticles extends Module {
 
         @Override
         public void extract(QuadParticleRenderState state, Camera camera, float partialTick) {
+            var frustum = Optimization.frustum(camera);
+            if (frustum != null && !frustum.isVisible(getBoundingBox().inflate(0.75))) return;
+            if (Optimization.level() >= 1) {
+                super.extract(state, camera, partialTick);
+                return;
+            }
             var core = sprite;
             float size = quadSize;
             float opacity = alpha;
@@ -174,7 +181,7 @@ final class WorldParticles extends Module {
         }
 
         private void updateColor() {
-            int tint = owner.color.rgb;
+            int tint = owner.color.renderColor();
             setColor((tint >> 16 & 255) / 255f, (tint >> 8 & 255) / 255f, (tint & 255) / 255f);
         }
 

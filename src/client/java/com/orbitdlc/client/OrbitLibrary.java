@@ -16,7 +16,8 @@ final class OrbitLibrary {
     private static final int INPUT_HEIGHT = 20;
     private static final int INPUT_TEXT_HEIGHT = 9;
     enum Tab {
-        VISUALS("Visuals"), UTILITIES("Utilities"), FRIENDS("Friends"), CONFIGS("Configs"), THEMES("Themes");
+        VISUALS("Visuals"), UTILITIES("Utilities"), FRIENDS("Friends"), CONFIGS("Configs"), THEMES("Themes"),
+        COSMETICS("Cosmetics");
 
         final String label;
 
@@ -39,14 +40,18 @@ final class OrbitLibrary {
     private int page;
     private int left, top, panelWidth, panelHeight;
     private EditBox profileName;
+    private EditBox accentColor, glassColor;
     private String status = "";
     private List<String> files = List.of();
+    private List<Cosmetics.Entry> cosmetics = List.of();
+    private int selectedCosmetic;
 
     OrbitLibrary(ClickGui host, ModuleManager modules, Tab tab) {
         this.host = host;
         this.modules = modules;
         this.tab = tab;
         if (hasList()) refreshFiles();
+        if (tab == Tab.COSMETICS) cosmetics = Cosmetics.catalog();
     }
 
     private boolean hasList() { return tab == Tab.CONFIGS || tab == Tab.FRIENDS; }
@@ -68,6 +73,7 @@ final class OrbitLibrary {
         controls.clear();
         switch (tab) {
             case VISUALS, UTILITIES -> throw new IllegalStateException();
+            case COSMETICS -> layoutCosmetics();
             case CONFIGS, FRIENDS -> {
                 boolean friends = tab == Tab.FRIENDS;
                 String hint = friends ? "Player name" : "Profile name";
@@ -92,16 +98,68 @@ final class OrbitLibrary {
                     }
                 });
             }
-            case THEMES -> {
-                int rowY = 34;
-                for (OrbitTheme theme : OrbitTheme.values()) {
-                    addControl(new OrbitButton(Component.literal(theme.label), left + 10, top + rowY, panelWidth - 20, 20,
-                            button -> OrbitTheme.select(theme), () -> OrbitTheme.current() == theme));
-                    rowY += 22;
-                }
-            }
+            case THEMES -> layoutThemes();
         }
         if (hasList()) addFileRows();
+    }
+
+    private void layoutThemes() {
+        int column = (panelWidth - 26) / 2;
+        var themes = OrbitTheme.values();
+        for (int i = 0; i < themes.length; i++) {
+            var theme = themes[i];
+            addControl(new OrbitButton(Component.literal(theme.label), left + 10 + (i % 2) * (column + 6),
+                    top + 30 + (i / 2) * 22, column, 20,
+                    control -> OrbitTheme.select(theme), () -> OrbitTheme.current() == theme));
+        }
+        button(OrbitTheme.flowing() ? "Color flow: On" : "Color flow: Off", 16 + column, 74, column, () -> {
+            OrbitTheme.toggleFlow();
+            host.refreshTab();
+        });
+        accentColor = themeField(accentColor, "Accent", 10, column, OrbitTheme.customAccent());
+        glassColor = themeField(glassColor, "Glass tint", 16 + column, column, OrbitTheme.customTint());
+        button("Apply custom colors", 10, 139, panelWidth - 20, () ->
+                perform(() -> OrbitTheme.custom(accentColor.getValue(), glassColor.getValue()), "Custom colors applied", false));
+    }
+
+    private EditBox themeField(EditBox previous, String label, int x, int width, int color) {
+        var field = new EditBox(font, left + x + 5, top + 121, width - 10, 14, Component.literal(label));
+        field.setBordered(false);
+        field.setMaxLength(7);
+        field.addFormatter((value, offset) -> Component.literal(value).setStyle(OrbitButton.TYPE).getVisualOrderText());
+        field.setValue(previous == null ? OrbitTheme.hex(color) : previous.getValue());
+        return addControl(field);
+    }
+
+    private void layoutCosmetics() {
+        if (cosmetics.isEmpty()) return;
+        button("<", 10, panelHeight - 29, 28, () -> browseCosmetics(-1));
+        button(">", panelWidth - 38, panelHeight - 29, 28, () -> browseCosmetics(1));
+        var entry = cosmetics.get(selectedCosmetic);
+        button(Cosmetics.equipped(entry) ? "Unequip" : "Equip", panelWidth - 82, panelHeight - 78, 72,
+                () -> perform(() -> Cosmetics.toggle(entry), "", true));
+    }
+
+    private void browseCosmetics(int direction) {
+        selectedCosmetic = Math.floorMod(selectedCosmetic + direction, cosmetics.size());
+        status = "";
+        host.refreshTab();
+    }
+
+    private void renderCosmetics(GuiGraphicsExtractor graphics) {
+        if (cosmetics.isEmpty()) {
+            draw(graphics, "No cosmetics found", 12, 40, 0xFFF4F5FA, panelWidth - 24);
+            return;
+        }
+        var entry = cosmetics.get(selectedCosmetic);
+        int previewHeight = panelHeight - 110;
+        GlassBackdrop.submit(graphics, left + 10, top + 29, panelWidth - 20, previewHeight, 11);
+        CosmeticPreview.draw(graphics, entry.id(), left + 20, top + 33, panelWidth - 40, previewHeight - 8);
+        draw(graphics, entry.name(), 12, panelHeight - 74, 0xFFF4F5FA, panelWidth - 96);
+        draw(graphics, entry.category(), 12, panelHeight - 58, 0xFFBAC7C8, panelWidth - 24);
+        String counter = (selectedCosmetic + 1) + " / " + cosmetics.size();
+        graphics.centeredText(font, Component.literal(counter).setStyle(OrbitButton.TYPE),
+                left + panelWidth / 2, top + panelHeight - 23, 0xFFF4F5FA);
     }
 
     private void addFileRows() {
@@ -146,7 +204,7 @@ final class OrbitLibrary {
         try {
             action.run();
             status = success;
-            if (refresh) refreshFiles();
+            if (refresh && hasList()) refreshFiles();
         } catch (IOException | RuntimeException error) {
             status = errorMessage(error);
         }
@@ -164,6 +222,14 @@ final class OrbitLibrary {
     void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         if (hasList()) GlassBackdrop.submit(graphics, left + 10, top + INPUT_TOP, panelWidth - 99, INPUT_HEIGHT, 6);
         draw(graphics, tab.label, 12, 12, OrbitTheme.accent(), panelWidth - 24);
+        if (tab == Tab.COSMETICS) renderCosmetics(graphics);
+        if (tab == Tab.THEMES) {
+            int column = (panelWidth - 26) / 2;
+            draw(graphics, "Accent", 12, 103, OrbitTheme.accent(), column);
+            draw(graphics, "Glass tint", 18 + column, 103, OrbitTheme.accent(), column);
+            GlassBackdrop.submit(graphics, left + 10, top + 116, column, 19, 6);
+            GlassBackdrop.submit(graphics, left + 16 + column, top + 116, column, 19, 6);
+        }
         if (hasList()) {
             int capacity = Math.max(0, (panelHeight - 108) / 23);
             for (int i = page * capacity; i < Math.min((page + 1) * capacity, files.size()); i++) {
@@ -175,7 +241,8 @@ final class OrbitLibrary {
                         12, 65, 0xFFF4F5FA, panelWidth - 24);
             }
         }
-        draw(graphics, status, 69, panelHeight - 19, OrbitTheme.accent(), panelWidth - 79);
+        if (tab == Tab.COSMETICS) draw(graphics, status, 12, panelHeight - 44, OrbitTheme.accent(), panelWidth - 24);
+        else draw(graphics, status, 69, panelHeight - 19, OrbitTheme.accent(), panelWidth - 79);
         controls.forEach(widget -> widget.extractRenderState(graphics, mouseX, mouseY, delta));
     }
 

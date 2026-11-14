@@ -48,7 +48,7 @@ public final class CustomFog extends Module {
     public String description() { return "Soft volumetric fog with adjustable color and density."; }
 
     public static void render(RenderTarget target, Camera camera) {
-        if (INSTANCE.isEnabled() && target.getColorTextureView() != null && target.getDepthTextureView() != null) {
+        if (INSTANCE.isEnabled() && Optimization.level() < 3 && target.getColorTextureView() != null && target.getDepthTextureView() != null) {
             INSTANCE.draw(target, camera);
         }
     }
@@ -77,7 +77,7 @@ public final class CustomFog extends Module {
             var position = camera.position();
             data.putFloat((float) position.x).putFloat((float) position.y).putFloat((float) position.z)
                     .putFloat(device.getDeviceInfo().isZZeroToOne() ? 1f : 0f);
-            int tint = fogColor == VisualColor.ORIGINAL ? 0xAABACB : fogColor.rgb;
+            int tint = fogColor.isOriginal() ? 0xAABACB : fogColor.renderColor();
             data.putFloat((tint >> 16 & 255) / 255f).putFloat((tint >> 8 & 255) / 255f)
                     .putFloat((tint & 255) / 255f).putFloat(density / 100f);
             double seconds = (System.nanoTime() - animationStart) * 1e-9;

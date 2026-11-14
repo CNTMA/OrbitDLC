@@ -10,7 +10,7 @@ final class TargetEsp extends Module {
 
     TargetEsp() { super("target_esp", Category.VISUALS); }
 
-    int tint() { return 0xFF000000 | color.rgb; }
+    int tint() { return 0xFF000000 | color.renderColor(); }
 
     @Override
     public String description() { return "Rotating marker for the entity under the crosshair."; }

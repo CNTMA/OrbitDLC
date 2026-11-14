@@ -1,9 +1,10 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version '1.18-SNAPSHOT'
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 	id 'maven-publish'
 }
 
 repositories {
+	maven { url = 'https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -23,6 +24,8 @@ loom {
 }
 
 dependencies {
+	clientImplementation 'maven.modrinth:8BmcQJ2H:kSxHvs99'
+	include 'maven.modrinth:8BmcQJ2H:kSxHvs99'
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"

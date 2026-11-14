@@ -50,7 +50,7 @@ public final class ShaderHand extends Module {
     public String description() { return "Animated flames and sparks around the first-person hand."; }
 
     public static void render(RenderTarget target, GpuTextureView handDepth, float yaw, float pitch) {
-        if (INSTANCE.isEnabled() && handDepth != null) INSTANCE.draw(target, handDepth, yaw, pitch);
+        if (INSTANCE.isEnabled() && Optimization.level() < 3 && handDepth != null) INSTANCE.draw(target, handDepth, yaw, pitch);
     }
 
     private void updateDrift(long now, float yaw, float pitch) {
@@ -93,7 +93,7 @@ public final class ShaderHand extends Module {
             updateDrift(now, yaw, pitch);
             data.putFloat(1f / width).putFloat(1f / height)
                     .putFloat((now % 60_000_000_000L) * 1e-9f).putFloat(heightPercent / 100f);
-            int tint = flameColor == VisualColor.ORIGINAL ? 0xFF6612 : flameColor.rgb;
+            int tint = flameColor.isOriginal() ? 0xFF6612 : flameColor.renderColor();
             data.putFloat((tint >> 16 & 255) / 255f).putFloat((tint >> 8 & 255) / 255f)
                     .putFloat((tint & 255) / 255f).putFloat(bloomPercent / 100f);
             data.putFloat(driftX).putFloat(driftY).putFloat(smoke ? 1f : 0f).putFloat(0f).flip();

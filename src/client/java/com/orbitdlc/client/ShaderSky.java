@@ -90,10 +90,10 @@ public final class ShaderSky extends Module {
             buffer.position(64);
             buffer.putFloat(seconds).putFloat(0).putFloat(1).putFloat(1);
             buffer.putFloat(1).putFloat(sky.rainBrightness).putFloat(1).putFloat(0);
-            if (color == VisualColor.ORIGINAL) {
+            if (color.isOriginal()) {
                 buffer.putFloat(0.67f).putFloat(0.52f).putFloat(1f).putFloat(0f);
             } else {
-                int tint = color.rgb;
+                int tint = color.renderColor();
                 buffer.putFloat((tint >> 16 & 255) / 255f).putFloat((tint >> 8 & 255) / 255f)
                         .putFloat((tint & 255) / 255f).putFloat(1f);
             }

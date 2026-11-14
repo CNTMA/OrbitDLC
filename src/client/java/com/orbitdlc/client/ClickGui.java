@@ -189,11 +189,14 @@ public final class ClickGui extends Screen {
         public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
             if (event.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT && isMouseOver(event.x(), event.y())) {
                 ModuleSettings settings = switch (module) {
+                    case SkyPng skyPng -> skyPng.settings(ClickGui.this);
                     case ShaderSky sky -> sky.settings(ClickGui.this);
                     case ShaderHand hand -> hand.settings(ClickGui.this);
                     case MaceSwap swap -> swap.settings(ClickGui.this);
                     case MaceHelper helper -> helper.settings(ClickGui.this);
                     case UtilityModules.QuickUse use -> use.settings(ClickGui.this);
+                    case AspectRatio aspectRatio -> aspectRatio.settings(ClickGui.this);
+                    case Optimization optimization -> optimization.settings(ClickGui.this);
                     case Beautiful beautiful -> beautiful.settings(ClickGui.this);
                     case CustomFog fog -> fog.settings(ClickGui.this);
                     case NoRender noRender -> noRender.settings(ClickGui.this);

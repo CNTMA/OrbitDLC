@@ -46,7 +46,7 @@ public final class Beautiful extends Module {
     public String description() { return "Cinematic color, soft bloom and atmospheric distance haze."; }
 
     public static void render(RenderTarget target, Camera camera) {
-        if (INSTANCE.isEnabled() && target.getColorTextureView() != null && target.getDepthTextureView() != null) {
+        if (INSTANCE.isEnabled() && Optimization.level() < 2 && target.getColorTextureView() != null && target.getDepthTextureView() != null) {
             INSTANCE.draw(target, camera);
         }
     }

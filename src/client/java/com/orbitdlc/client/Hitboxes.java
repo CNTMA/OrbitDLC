@@ -29,9 +29,11 @@ final class Hitboxes extends Module {
             float tick = delta.getGameTimeDeltaPartialTick(false);
             var camera = client.gameRenderer.mainCamera();
             camera.getViewRotationProjectionMatrix(projection);
+            var frustum = Optimization.frustum(camera);
             for (var target : client.level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(32),
                     entity -> entity != player && entity.isAlive() && !entity.isSpectator()
                             && !entity.isInvisibleTo(player) && entity.distanceToSqr(player) <= 1024)) {
+                if (frustum != null && !frustum.isVisible(target.getBoundingBox().inflate(0.5))) continue;
                 if (player.hasLineOfSight(target)) draw(graphics, camera.position(), target, tick);
             }
         });

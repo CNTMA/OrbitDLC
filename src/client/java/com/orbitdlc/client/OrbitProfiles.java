@@ -39,6 +39,9 @@ final class OrbitProfiles {
     static void save(Path path, ModuleManager modules, boolean overwrite) throws IOException {
         var root = new JsonObject();
         root.addProperty("theme", OrbitTheme.current().name());
+        root.addProperty("customAccent", OrbitTheme.customAccent());
+        root.addProperty("customTint", OrbitTheme.customTint());
+        root.addProperty("themeFlow", OrbitTheme.flowing());
         var states = new JsonObject();
         for (var module : modules.modules()) {
             if (module instanceof PlannedModule) continue;
@@ -65,6 +68,9 @@ final class OrbitProfiles {
         }
         var root = JSON.fromJson(Files.readString(path), JsonObject.class);
         var theme = OrbitTheme.valueOf(root.get("theme").getAsString());
+        int accent = root.has("customAccent") ? root.get("customAccent").getAsInt() : OrbitTheme.customAccent();
+        int tint = root.has("customTint") ? root.get("customTint").getAsInt() : OrbitTheme.customTint();
+        boolean flow = root.has("themeFlow") && root.get("themeFlow").getAsBoolean();
         var states = root.getAsJsonObject("modules");
         var rollback = new java.util.LinkedHashMap<com.orbitdlc.client.module.Module, JsonObject>();
         try {
@@ -85,7 +91,7 @@ final class OrbitProfiles {
             });
             throw error;
         }
-        OrbitTheme.select(theme);
+        OrbitTheme.restore(theme, accent, tint, flow);
     }
 
     static void loadSession(ModuleManager modules) {

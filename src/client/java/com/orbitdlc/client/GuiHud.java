@@ -24,6 +24,10 @@ public final class GuiHud extends Module {
     private final Animation effectsEntrance = new Animation();
     private LivingEntity previousTarget;
     private boolean slotInitialized;
+    private static final net.minecraft.resources.Identifier MUSIC_COVER = OrbitDLC.id("music_cover");
+    private String coverSource;
+    private boolean coverReady;
+    private final MusicPlayer music = new MusicPlayer();
 
     @Override
     protected void onEnable() {
@@ -36,13 +40,14 @@ public final class GuiHud extends Module {
 
     @Override
     protected void onDisable() {
+        stopMusic();
         previousTarget = null;
     }
 
     private enum Widget {
         BRAND("Session status"), EFFECTS("Effects"), BINDS("Keybinds"), TARGET("Target health"),
         HOTBAR("Glass hotbar"), POSITION("Coordinates"), FPS("FPS"), CLOCK("Local time"),
-        SPEED("Movement speed"), BIOME("Biome");
+        SPEED("Movement speed"), BIOME("Biome"), MUSIC("Music Player");
 
         final String label;
 
@@ -68,6 +73,7 @@ public final class GuiHud extends Module {
         for (var widget : settings.getAsJsonArray("widgets")) {
             widgets.add(Widget.valueOf(widget.getAsString()));
         }
+        if (!widgets.contains(Widget.MUSIC)) stopMusic();
         visible.clear();
         visible.addAll(widgets);
     }
@@ -81,6 +87,7 @@ public final class GuiHud extends Module {
                         index -> visible.contains(widgets[index]), index -> {
                             Widget widget = widgets[index];
                             if (!visible.remove(widget)) visible.add(widget);
+                            else if (widget == Widget.MUSIC) stopMusic();
                         });
             }
 
@@ -163,6 +170,7 @@ public final class GuiHud extends Module {
     }
 
     private void panels(GuiGraphicsExtractor graphics, Minecraft client) {
+        if (visible.contains(Widget.MUSIC)) musicPanel(graphics, client);
         int width = graphics.guiWidth();
         int height = graphics.guiHeight();
         if (visible.contains(Widget.BRAND)) {
@@ -187,7 +195,7 @@ public final class GuiHud extends Module {
                     draw(graphics, client, field, x, bar.y() + 5, TEXT);
                     x += client.font.width(text(field)) + 4;
                     if (!field.equals(fields.getLast())) {
-                        draw(graphics, client, "·", x, bar.y() + 5, ACCENT);
+                        draw(graphics, client, "·", x, bar.y() + 5, Theme.color(ACCENT));
                     }
                     x += 8;
                 }
@@ -285,8 +293,87 @@ public final class GuiHud extends Module {
                              int x, int y, int width, int rows, String title) {
         panel(graphics, x, y, width, 22 + rows * 12);
         draw(graphics, client, title, x + 8, y + 6, TEXT);
-        shape(graphics, x + width - 12, y + 7, 4, 4, 2, ACCENT);
+        shape(graphics, x + width - 12, y + 7, 4, 4, 2, Theme.color(ACCENT));
         graphics.fill(x + 7, y + 17, x + width - 7, y + 18, 0x34B8C5EE);
+    }
+
+    private void musicPanel(GuiGraphicsExtractor graphics, Minecraft client) {
+        int width = Math.min(172, graphics.guiWidth() - 16);
+        if (width < 122) return;
+        var track = music.poll();
+        boolean editing = client.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen;
+        updateMusicCover(client, track.cover());
+        if (!track.hasTitle() && !editing) return;
+        var box = HudDrag.position(HudDrag.Widget.MUSIC, graphics, 12, graphics.guiHeight() - 112, width, 62);
+        int x = box.x();
+        int y = box.y();
+        panel(graphics, x, y, width, 62);
+        graphics.enableScissor(x + 7, y + 3, x + width - 7, y + 59);
+        try {
+            draw(graphics, client, "Music Player", x + 9, y + 6, Theme.color(ACCENT));
+            if (coverReady) {
+                graphics.blit(MUSIC_COVER, x + 9, y + 20, x + 46, y + 57, 0f, 1f, 0f, 1f);
+            } else {
+                shape(graphics, x + 9, y + 20, 37, 37, 6, 0x665F5260);
+                musicIcon(graphics, client, "note", x + 19, y + 30, 17);
+            }
+            String title = track.hasTitle() ? track.title() : track.error() ? "Media service unavailable" : "No active track";
+            draw(graphics, client, title, x + 53, y + 19, TEXT);
+            if (track.artist() != null) draw(graphics, client, track.artist(), x + 53, y + 30, TEXT);
+            musicButton(graphics, client, x + 53, y + 43, 18, "previous", track.previous(), false);
+            musicButton(graphics, client, x + 74, y + 43, 19, track.playing() ? "pause" : "play", track.toggle(), true);
+            musicButton(graphics, client, x + 96, y + 43, 18, "next", track.next(), false);
+        } finally {
+            graphics.disableScissor();
+        }
+    }
+
+    private void stopMusic() {
+        music.stop();
+        updateMusicCover(Minecraft.getInstance(), null);
+    }
+
+    private void updateMusicCover(Minecraft client, String encoded) {
+        if (java.util.Objects.equals(coverSource, encoded)) return;
+        var textures = client.getTextureManager();
+        if (coverReady) textures.release(MUSIC_COVER);
+        coverReady = false;
+        coverSource = encoded;
+        if (encoded == null || encoded.length() > 64_000) return;
+        try {
+            var pixels = com.mojang.blaze3d.platform.NativeImage.read(java.util.Base64.getDecoder().decode(encoded));
+            textures.register(MUSIC_COVER, new net.minecraft.client.renderer.texture.DynamicTexture(
+                    () -> "OrbitDLC music cover", pixels));
+            coverReady = true;
+        } catch (java.io.IOException | IllegalArgumentException ignored) {
+            // Keep showing the music icon if the application supplies a malformed image.
+        }
+    }
+
+    private static void musicButton(GuiGraphicsExtractor graphics, Minecraft client, int x, int y, int w,
+                                    String icon, boolean enabled, boolean primary) {
+        shape(graphics, x, y, w, 14, 5, enabled ? (primary ? 0x99765872 : 0x665F5260) : 0x333E3942);
+        musicIcon(graphics, client, icon, x + (w - 10) / 2, y + 2, 10);
+    }
+
+    private static void musicIcon(GuiGraphicsExtractor graphics, Minecraft client, String icon, int x, int y, int size) {
+        var texture = client.getTextureManager().getTexture(OrbitDLC.id("music/" + icon + ".png"));
+        var sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache()
+                .getClampToEdge(com.mojang.renderpearl.api.textures.FilterMode.LINEAR);
+        graphics.blit(texture.getTextureView(), sampler, x, y, x + size, y + size, 0f, 1f, 0f, 1f);
+    }
+
+    boolean clickMusic(HudDrag.Bounds box, double x, double y) {
+        if (!isEnabled() || !visible.contains(Widget.MUSIC)) return false;
+        double localX = x - box.x();
+        double localY = y - box.y();
+        if (localY < 43 || localY >= 57) return false;
+        var track = music.current();
+        if (localX >= 53 && localX < 71 && track.previous()) music.control("previous");
+        else if (localX >= 74 && localX < 93 && track.toggle()) music.control("toggle");
+        else if (localX >= 96 && localX < 114 && track.next()) music.control("next");
+        else return false;
+        return true;
     }
 
     private static void row(GuiGraphicsExtractor graphics, Minecraft client,
@@ -294,7 +381,7 @@ public final class GuiHud extends Module {
         int suffixWidth = client.font.width(text(value));
         String fitted = client.font.substrByWidth(text(label), Math.max(0, width - 22 - suffixWidth)).getString();
         draw(graphics, client, fitted, x + 8, y, TEXT);
-        draw(graphics, client, value, x + width - 8 - suffixWidth, y, ACCENT);
+        draw(graphics, client, value, x + width - 8 - suffixWidth, y, Theme.color(ACCENT));
     }
 
     private static void draw(GuiGraphicsExtractor graphics, Minecraft client, String label, int x, int y, int color) {

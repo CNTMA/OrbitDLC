@@ -1,6 +1,7 @@
 package com.orbitdlc.client.mixin;
 
 import com.orbitdlc.client.NoRender;
+import com.orbitdlc.client.Optimization;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.core.particles.ParticleOptions;
@@ -28,6 +29,10 @@ abstract class NoRenderParticlesMixin {
                     NoRender.hides(NoRender.Effect.EXPLOSION_PARTICLES);
             default -> false;
         };
+        boolean ambient = type == ParticleTypes.ASH || type == ParticleTypes.WHITE_ASH
+                || type == ParticleTypes.MYCELIUM || type == ParticleTypes.CRIMSON_SPORE
+                || type == ParticleTypes.WARPED_SPORE;
+        reduce |= ambient && Optimization.level() >= 2;
         if (reduce && ThreadLocalRandom.current().nextBoolean()) callback.setReturnValue(null);
     }
 }

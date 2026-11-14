@@ -2,6 +2,7 @@ package com.orbitdlc.client.mixin;
 
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.orbitdlc.client.ShaderSky;
+import com.orbitdlc.client.SkyPng;
 import net.minecraft.client.renderer.SkyRenderer;
 import net.minecraft.client.renderer.state.level.SkyRenderState;
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -18,7 +19,7 @@ abstract class ShaderSkyMixin {
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void orbitdlc$renderSky(GpuBufferSlice fog, SkyRenderState state, CallbackInfo callback) {
-        if (ShaderSky.render(state, renderTarget)) callback.cancel();
+        if (SkyPng.render(state, renderTarget) || ShaderSky.render(state, renderTarget)) callback.cancel();
     }
 }
 

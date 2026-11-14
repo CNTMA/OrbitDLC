@@ -81,6 +81,19 @@ final class JumpCircles extends Module {
         if (!isEnabled() || rings.isEmpty() || client.player != previousPlayer
                 || target.getDepthTextureView() == null || target.getColorTextureView() == null) return;
         var camera = client.gameRenderer.mainCamera();
+        var frustum = Optimization.frustum(camera);
+        java.util.Collection<Ring> visibleRings = rings;
+        if (frustum != null) {
+            // Include rotated seal corners and the shockwave glow outside the ring.
+            double extent = radius * Math.sqrt(2) + 3;
+            visibleRings = rings.stream().filter(ring -> {
+                var origin = ring.origin();
+                return frustum.isVisible(new net.minecraft.world.phys.AABB(
+                        origin.x - extent, origin.y - 1.5, origin.z - extent,
+                        origin.x + extent, origin.y + 1.5, origin.z + extent));
+            }).toList();
+            if (visibleRings.isEmpty()) return;
+        }
         var device = RenderSystem.getDevice();
         try (var stack = MemoryStack.stackPush()) {
             if (uniforms == null) {
@@ -102,17 +115,17 @@ final class JumpCircles extends Module {
             data.position(128);
             data.putFloat(0f).putFloat(0f).putFloat(0f);
             data.putFloat(device.getDeviceInfo().isZZeroToOne() ? 1f : 0f);
-            data.putFloat(1f / width).putFloat(1f / height).putFloat(-1f).putFloat(rings.size());
+            data.putFloat(1f / width).putFloat(1f / height).putFloat(-1f).putFloat(visibleRings.size());
             var cameraPosition = camera.position();
             long now = System.nanoTime();
-            for (Ring ring : rings) {
+            for (Ring ring : visibleRings) {
                 var relative = ring.origin().subtract(cameraPosition);
                 data.putFloat((float) relative.x).putFloat((float) relative.y).putFloat((float) relative.z);
                 data.putFloat(Math.clamp((float) (now - ring.started()) / lifetime, 0f, 1f));
-                if (this.color == VisualColor.ORIGINAL) {
+                if (this.color.isOriginal()) {
                     data.putFloat(0.83f).putFloat(0.65f).putFloat(0.93f);
                 } else {
-                    int tint = this.color.rgb;
+                    int tint = this.color.renderColor();
                     data.putFloat((tint >> 16 & 255) / 255f).putFloat((tint >> 8 & 255) / 255f)
                             .putFloat((tint & 255) / 255f);
                 }

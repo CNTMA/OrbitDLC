@@ -23,11 +23,20 @@ public final class OrbitDLCClient implements ClientModInitializer {
         modules.register(Ambience.INSTANCE);
         ShaderSky.init();
         modules.register(ShaderSky.INSTANCE);
+        modules.register(SkyPng.INSTANCE);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> SkyPng.INSTANCE.close());
         modules.register(ShaderHand.INSTANCE);
+        modules.register(ShaderCrystal.INSTANCE);
+        modules.register(ChinaHat.INSTANCE);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ShaderCrystal.INSTANCE.close());
         modules.register(Beautiful.INSTANCE);
         modules.register(CustomFog.INSTANCE);
         modules.register(NoRender.INSTANCE);
         modules.register(Viewmodel.INSTANCE);
+        modules.register(Optimization.INSTANCE);
+        modules.register(AspectRatio.INSTANCE);
+        modules.register(Theme.INSTANCE);
+        ClientTickEvents.END_CLIENT_TICK.register(Optimization.INSTANCE::tick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> CustomFog.INSTANCE.close());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> Beautiful.INSTANCE.close());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ShaderHand.INSTANCE.close());
@@ -37,7 +46,7 @@ public final class OrbitDLCClient implements ClientModInitializer {
         var guiHud = new GuiHud(openGui);
         modules.register(guiHud);
         guiHud.registerHud();
-        HudDrag.register();
+        HudDrag.register(guiHud);
         OrbitBadges.register();
         OrbitFriends.register();
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

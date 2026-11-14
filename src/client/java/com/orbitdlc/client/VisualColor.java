@@ -14,6 +14,9 @@ enum VisualColor {
         this.rgb = rgb;
     }
 
+    boolean isOriginal() { return this == ORIGINAL && !Theme.INSTANCE.isEnabled(); }
+    int renderColor() { return Theme.color(rgb) & 0xFFFFFF; }
+
     VisualColor next() { return COLORS[(ordinal() + 1) % COLORS.length]; }
 
     static VisualColor load(com.google.gson.JsonObject settings) {

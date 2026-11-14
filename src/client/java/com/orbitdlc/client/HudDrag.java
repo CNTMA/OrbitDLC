@@ -9,7 +9,7 @@ import net.minecraft.client.gui.screens.ChatScreen;
 import java.util.EnumMap;
 
 final class HudDrag {
-    enum Widget { STATUS, KEYS, EFFECTS, TARGET, HOTBAR, METRICS }
+    enum Widget { STATUS, KEYS, EFFECTS, TARGET, HOTBAR, METRICS, MUSIC }
     record Bounds(int x, int y, int w, int h) {
         boolean contains(double px, double py) {
             return px >= x && px < x + w && py >= y && py < y + h;
@@ -45,7 +45,7 @@ final class HudDrag {
         offsets.putAll(restored);
     }
 
-    static void register() {
+    static void register(GuiHud hud) {
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             if (!(screen instanceof ChatScreen)) return;
             selected = null;
@@ -54,6 +54,7 @@ final class HudDrag {
                 if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) return true;
                 for (var entry : bounds.entrySet()) {
                     if (!entry.getValue().contains(event.x(), event.y())) continue;
+                    if (entry.getKey() == Widget.MUSIC && hud.clickMusic(entry.getValue(), event.x(), event.y())) return false;
                     selected = entry.getKey();
                     var offset = offsets.getOrDefault(selected, new Bounds(0, 0, 0, 0));
                     offsetX = offset.x();

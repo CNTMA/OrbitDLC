@@ -39,7 +39,7 @@ public final class WetReflections {
     static void init() {}
 
     public static void apply(RenderTarget main, Camera camera) {
-        if (!Ambience.wetWorldEnabled() || failed || main.getDepthTextureView() == null
+        if (Optimization.level() >= 2 || !Ambience.wetWorldEnabled() || failed || main.getDepthTextureView() == null
                 || main.getColorTextureView() == null) return;
         try (var stack = MemoryStack.stackPush()) {
             var device = RenderSystem.getDevice();
