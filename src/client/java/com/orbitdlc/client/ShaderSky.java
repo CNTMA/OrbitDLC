@@ -144,8 +144,7 @@ public final class ShaderSky extends Module {
                                 .map(value -> value.name().charAt(0) + value.name().substring(1).toLowerCase(Locale.ROOT))
                                 .toList(),
                         index -> preset == presets[index], index -> preset = presets[index], 25);
-                choicesAt(java.util.List.of("0.5×", "1×", "1.5×", "2×"),
-                        index -> speed == (index + 1) * 0.5f, index -> speed = (index + 1) * 0.5f, speedRow + 5);
+                slider("Speed", "%", speedRow + 5, 50, 200, () -> Math.round(speed * 100), value -> speed = value / 100f);
             }
 
         };

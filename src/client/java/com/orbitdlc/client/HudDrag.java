@@ -9,7 +9,7 @@ import net.minecraft.client.gui.screens.ChatScreen;
 import java.util.EnumMap;
 
 final class HudDrag {
-    enum Widget { STATUS, KEYS, EFFECTS, TARGET, HOTBAR, METRICS, MUSIC }
+    enum Widget { STATUS, KEYS, EFFECTS, TARGET, HOTBAR, METRICS, MUSIC, ISLAND, COORDS, SERVER, TPS }
     record Bounds(int x, int y, int w, int h) {
         boolean contains(double px, double py) {
             return px >= x && px < x + w && py >= y && py < y + h;
@@ -52,18 +52,7 @@ final class HudDrag {
             bounds.clear();
             ScreenMouseEvents.allowMouseClick(screen).register((current, event) -> {
                 if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) return true;
-                for (var entry : bounds.entrySet()) {
-                    if (!entry.getValue().contains(event.x(), event.y())) continue;
-                    if (entry.getKey() == Widget.MUSIC && hud.clickMusic(entry.getValue(), event.x(), event.y())) return false;
-                    selected = entry.getKey();
-                    var offset = offsets.getOrDefault(selected, new Bounds(0, 0, 0, 0));
-                    offsetX = offset.x();
-                    offsetY = offset.y();
-                    startX = event.x();
-                    startY = event.y();
-                    return false;
-                }
-                return true;
+                return !startDrag(hud, event.x(), event.y());
             });
             ScreenMouseEvents.allowMouseRelease(screen).register((current, event) -> {
                 if (event.button() != InputConstants.MOUSE_BUTTON_LEFT || selected == null) return true;
@@ -77,8 +66,29 @@ final class HudDrag {
         });
     }
 
+    static boolean startDrag(GuiHud hud, double x, double y) {
+        for (var entry : bounds.entrySet()) {
+            if (!entry.getValue().contains(x, y)) continue;
+            if (entry.getKey() == Widget.MUSIC && hud.clickMusic(entry.getValue(), x, y)) return true;
+            selected = entry.getKey();
+            var offset = offsets.getOrDefault(selected, new Bounds(0, 0, 0, 0));
+            offsetX = offset.x();
+            offsetY = offset.y();
+            startX = x;
+            startY = y;
+            return true;
+        }
+        return false;
+    }
+
+    static boolean finishDrag() {
+        if (selected == null) return false;
+        selected = null;
+        return true;
+    }
+
     static void updateFrame(net.minecraft.client.Minecraft client) {
-        if (selected == null || !(client.gui.screen() instanceof ChatScreen)) return;
+        if (selected == null || !(client.gui.screen() instanceof ChatScreen || client.gui.screen() instanceof ClickGui)) return;
         var window = client.getWindow();
         update(client.mouseHandler.getScaledXPos(window), client.mouseHandler.getScaledYPos(window));
     }

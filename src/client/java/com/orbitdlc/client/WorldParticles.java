@@ -103,14 +103,8 @@ final class WorldParticles extends Module {
         return new ModuleSettings("World Particles", parent) {
             @Override
             protected void init() {
-                chip("Amount · " + amount, 0, button -> {
-                    amount = amount >= 25 ? 1 : Math.min(25, (amount / 5 + 1) * 5);
-                    button.setMessage(Component.literal("Amount · " + amount));
-                });
-                chip("Distance · " + distance + " m", 1, button -> {
-                    distance = distance >= 32 ? 4 : (distance / 4 + 1) * 4;
-                    button.setMessage(Component.literal("Distance · " + distance + " m"));
-                });
+                slider("Amount", "", 0, 1, 25, () -> amount, value -> amount = value);
+                slider("Distance", " m", 24, 4, 32, () -> distance, value -> distance = value);
                 chip("Color · " + color.label, 2, button -> {
                     color = color.next();
                     button.setMessage(Component.literal("Color · " + color.label));

@@ -61,8 +61,9 @@ public final class UtilityHud {
                 if (clip.w <= 0.001f || Math.abs(clip.x) >= clip.w || Math.abs(clip.y) >= clip.w) continue;
                 int x = Math.round((0.5f + 0.5f * clip.x / clip.w) * graphics.guiWidth());
                 int y = Math.round((0.5f - 0.5f * clip.y / clip.w) * graphics.guiHeight());
-                badge(graphics, client, other.getDisplayName().getString() + " · "
-                        + Math.round(Math.sqrt(distance)) + " m", x, y, 0xFFF4F5FA);
+                var name = other.getDisplayName().copy()
+                        .append(Component.literal(" · " + Math.round(Math.sqrt(distance)) + " m"));
+                badge(graphics, client, OrbitBadges.decorate(other.getUUID(), name), x, y, 0xFFF4F5FA);
                 int armorCount = 0;
                 for (var slot : ARMOR) if (!other.getItemBySlot(slot).isEmpty()) armorCount++;
                 int itemX = x - armorCount * 9;
@@ -91,7 +92,10 @@ public final class UtilityHud {
     }
 
     private static void badge(GuiGraphicsExtractor graphics, Minecraft client, String label, int x, int y, int color) {
-        var text = Component.literal(label).setStyle(OrbitButton.TYPE);
+        badge(graphics, client, Component.literal(label).setStyle(OrbitButton.TYPE), x, y, color);
+    }
+
+    private static void badge(GuiGraphicsExtractor graphics, Minecraft client, Component text, int x, int y, int color) {
         int width = client.font.width(text) + 12;
         RoundedRectRenderState.submit(graphics, x - width / 2, y, width, 15, 5, 0xCC19171D);
         graphics.centeredText(client.font, text, x, y + 3, color);

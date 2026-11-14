@@ -14,7 +14,6 @@ import java.util.List;
 final class OrbitLibrary {
     private static final int INPUT_TOP = 34;
     private static final int INPUT_HEIGHT = 20;
-    private static final int INPUT_TEXT_HEIGHT = 9;
     enum Tab {
         VISUALS("Visuals"), UTILITIES("Utilities"), FRIENDS("Friends"), CONFIGS("Configs"), THEMES("Themes"),
         COSMETICS("Cosmetics");
@@ -40,11 +39,12 @@ final class OrbitLibrary {
     private int page;
     private int left, top, panelWidth, panelHeight;
     private EditBox profileName;
-    private EditBox accentColor, glassColor;
+    private EditBox accentColor, glassColor, surfaceColor, textColor, outlineColor;
     private String status = "";
     private List<String> files = List.of();
     private List<Cosmetics.Entry> cosmetics = List.of();
-    private int selectedCosmetic;
+    private int cosmeticRow;
+    private int cosmeticColumns, cosmeticRows, cosmeticSize;
 
     OrbitLibrary(ClickGui host, ModuleManager modules, Tab tab) {
         this.host = host;
@@ -78,11 +78,8 @@ final class OrbitLibrary {
                 boolean friends = tab == Tab.FRIENDS;
                 String hint = friends ? "Player name" : "Profile name";
                 String previousName = profileName == null ? "" : profileName.getValue();
-                int textY = top + INPUT_TOP + (INPUT_HEIGHT - INPUT_TEXT_HEIGHT) / 2;
-                profileName = new EditBox(font, left + 14, textY, panelWidth - 107,
-                        top + INPUT_TOP + INPUT_HEIGHT - textY, Component.literal(hint));
-                profileName.setBordered(false);
-                profileName.addFormatter((value, offset) -> Component.literal(value).setStyle(OrbitButton.TYPE).getVisualOrderText());
+                profileName = new GlassInput(font, left + 10, top + INPUT_TOP,
+                        panelWidth - 99, INPUT_HEIGHT, hint);
                 profileName.setMaxLength(friends ? 16 : 32);
                 profileName.setValue(previousName);
                 profileName.setHint(Component.literal(hint).setStyle(OrbitButton.TYPE));
@@ -116,34 +113,63 @@ final class OrbitLibrary {
             OrbitTheme.toggleFlow();
             host.refreshTab();
         });
-        accentColor = themeField(accentColor, "Accent", 10, column, OrbitTheme.customAccent());
-        glassColor = themeField(glassColor, "Glass tint", 16 + column, column, OrbitTheme.customTint());
-        button("Apply custom colors", 10, 139, panelWidth - 20, () ->
-                perform(() -> OrbitTheme.custom(accentColor.getValue(), glassColor.getValue()), "Custom colors applied", false));
+        accentColor = themeField(accentColor, "Accent", 10, column, 116, OrbitTheme.customAccent());
+        glassColor = themeField(glassColor, "Glass tint", 16 + column, column, 116, OrbitTheme.customTint());
+        surfaceColor = themeField(surfaceColor, "Background", 10, column, 151, OrbitTheme.surface());
+        textColor = themeField(textColor, "Text", 16 + column, column, 151, OrbitTheme.foreground());
+        outlineColor = themeField(outlineColor, "Outline", 10, column, 186, OrbitTheme.outline());
+        button("Apply", 16 + column, 186, column, () ->
+                perform(() -> OrbitTheme.custom(accentColor.getValue(), glassColor.getValue(), surfaceColor.getValue(),
+                        textColor.getValue(), outlineColor.getValue()), "Applied", false));
     }
 
-    private EditBox themeField(EditBox previous, String label, int x, int width, int color) {
-        var field = new EditBox(font, left + x + 5, top + 121, width - 10, 14, Component.literal(label));
-        field.setBordered(false);
+    private EditBox themeField(EditBox previous, String label, int x, int width, int y, int color) {
+        var field = new GlassInput(font, left + x, top + y, width, 19, label);
         field.setMaxLength(7);
-        field.addFormatter((value, offset) -> Component.literal(value).setStyle(OrbitButton.TYPE).getVisualOrderText());
         field.setValue(previous == null ? OrbitTheme.hex(color) : previous.getValue());
         return addControl(field);
     }
 
     private void layoutCosmetics() {
-        if (cosmetics.isEmpty()) return;
-        button("<", 10, panelHeight - 29, 28, () -> browseCosmetics(-1));
-        button(">", panelWidth - 38, panelHeight - 29, 28, () -> browseCosmetics(1));
-        var entry = cosmetics.get(selectedCosmetic);
-        button(Cosmetics.equipped(entry) ? "Unequip" : "Equip", panelWidth - 82, panelHeight - 78, 72,
-                () -> perform(() -> Cosmetics.toggle(entry), "", true));
+        cosmeticColumns = Math.max(1, Math.min(4, (panelWidth - 20) / 77));
+        cosmeticSize = Math.min(82, (panelWidth - 20 - (cosmeticColumns - 1) * 7) / cosmeticColumns);
+        cosmeticRows = cosmeticSize > 24 ? Math.max(0, (panelHeight - 54) / (cosmeticSize + 42)) : 0;
+        cosmeticRow = Math.clamp(cosmeticRow, 0, lastCosmeticRow());
+        if (cosmeticRows == 0 || cosmetics.isEmpty()) return;
+        for (int i = 0; i < visibleCosmetics(); i++) {
+            var entry = cosmetics.get(cosmeticRow * cosmeticColumns + i);
+            button(Cosmetics.equipped(entry) ? "Unequip" : "Equip", tileX(i), tileY(i) + cosmeticSize + 18,
+                    cosmeticSize, () -> perform(() -> Cosmetics.toggle(entry), "", true));
+        }
+        button("<", 10, panelHeight - 24, 23, () -> scrollCosmetics(-1)).active = cosmeticRow > 0;
+        button(">", panelWidth - 33, panelHeight - 24, 23, () -> scrollCosmetics(1)).active = cosmeticRow < lastCosmeticRow();
     }
 
-    private void browseCosmetics(int direction) {
-        selectedCosmetic = Math.floorMod(selectedCosmetic + direction, cosmetics.size());
-        status = "";
+    private int tileX(int i) {
+        int gridWidth = cosmeticColumns * (cosmeticSize + 7) - 7;
+        return (panelWidth - gridWidth) / 2 + (i % cosmeticColumns) * (cosmeticSize + 7);
+    }
+
+    private int tileY(int i) { return 28 + (i / cosmeticColumns) * (cosmeticSize + 42); }
+
+    private int lastCosmeticRow() {
+        return Math.max(0, (cosmetics.size() + cosmeticColumns - 1) / cosmeticColumns - cosmeticRows);
+    }
+
+    private int visibleCosmetics() {
+        return Math.min(cosmeticRows * cosmeticColumns, cosmetics.size() - cosmeticRow * cosmeticColumns);
+    }
+
+    private void scrollCosmetics(int delta) {
+        cosmeticRow = Math.clamp(cosmeticRow + delta, 0, lastCosmeticRow());
         host.refreshTab();
+    }
+
+    boolean scroll(double x, double y, double amount) {
+        if (tab != Tab.COSMETICS || cosmeticRows == 0 || amount == 0 || x < left || x >= left + panelWidth
+                || y < top || y >= top + panelHeight) return false;
+        scrollCosmetics(amount < 0 ? 1 : -1);
+        return true;
     }
 
     private void renderCosmetics(GuiGraphicsExtractor graphics) {
@@ -151,15 +177,19 @@ final class OrbitLibrary {
             draw(graphics, "No cosmetics found", 12, 40, 0xFFF4F5FA, panelWidth - 24);
             return;
         }
-        var entry = cosmetics.get(selectedCosmetic);
-        int previewHeight = panelHeight - 110;
-        GlassBackdrop.submit(graphics, left + 10, top + 29, panelWidth - 20, previewHeight, 11);
-        CosmeticPreview.draw(graphics, entry.id(), left + 20, top + 33, panelWidth - 40, previewHeight - 8);
-        draw(graphics, entry.name(), 12, panelHeight - 74, 0xFFF4F5FA, panelWidth - 96);
-        draw(graphics, entry.category(), 12, panelHeight - 58, 0xFFBAC7C8, panelWidth - 24);
-        String counter = (selectedCosmetic + 1) + " / " + cosmetics.size();
+        if (cosmeticRows == 0) return;
+        for (int i = 0; i < visibleCosmetics(); i++) {
+            var entry = cosmetics.get(cosmeticRow * cosmeticColumns + i);
+            int x = tileX(i), y = tileY(i);
+            GlassBackdrop.clickGuiPanel(graphics, left + x, top + y, cosmeticSize, cosmeticSize, 7);
+            CosmeticPreview.draw(graphics, entry.id(), left + x + 3, top + y + 3, cosmeticSize - 6, cosmeticSize - 6);
+            draw(graphics, entry.name(), x + 1, y + cosmeticSize + 1, OrbitTheme.foreground(), cosmeticSize - 2);
+            draw(graphics, entry.category(), x + 1, y + cosmeticSize + 10, 0xFFB9B2C7, cosmeticSize - 2);
+        }
+        int first = cosmeticRow * cosmeticColumns + 1;
+        String counter = first + "–" + (first + visibleCosmetics() - 1) + " / " + cosmetics.size();
         graphics.centeredText(font, Component.literal(counter).setStyle(OrbitButton.TYPE),
-                left + panelWidth / 2, top + panelHeight - 23, 0xFFF4F5FA);
+                left + panelWidth / 2, top + panelHeight - 17, OrbitTheme.foreground());
     }
 
     private void addFileRows() {
@@ -220,15 +250,15 @@ final class OrbitLibrary {
     private interface FileAction { void run() throws IOException; }
 
     void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        if (hasList()) GlassBackdrop.submit(graphics, left + 10, top + INPUT_TOP, panelWidth - 99, INPUT_HEIGHT, 6);
         draw(graphics, tab.label, 12, 12, OrbitTheme.accent(), panelWidth - 24);
         if (tab == Tab.COSMETICS) renderCosmetics(graphics);
         if (tab == Tab.THEMES) {
             int column = (panelWidth - 26) / 2;
             draw(graphics, "Accent", 12, 103, OrbitTheme.accent(), column);
             draw(graphics, "Glass tint", 18 + column, 103, OrbitTheme.accent(), column);
-            GlassBackdrop.submit(graphics, left + 10, top + 116, column, 19, 6);
-            GlassBackdrop.submit(graphics, left + 16 + column, top + 116, column, 19, 6);
+            draw(graphics, "Background", 12, 138, OrbitTheme.accent(), column);
+            draw(graphics, "Text", 18 + column, 138, OrbitTheme.accent(), column);
+            draw(graphics, "Outline", 12, 173, OrbitTheme.accent(), column);
         }
         if (hasList()) {
             int capacity = Math.max(0, (panelHeight - 108) / 23);
@@ -241,7 +271,7 @@ final class OrbitLibrary {
                         12, 65, 0xFFF4F5FA, panelWidth - 24);
             }
         }
-        if (tab == Tab.COSMETICS) draw(graphics, status, 12, panelHeight - 44, OrbitTheme.accent(), panelWidth - 24);
+        if (tab == Tab.COSMETICS && !status.isEmpty()) draw(graphics, status, 82, 12, OrbitTheme.accent(), panelWidth - 94);
         else draw(graphics, status, 69, panelHeight - 19, OrbitTheme.accent(), panelWidth - 79);
         controls.forEach(widget -> widget.extractRenderState(graphics, mouseX, mouseY, delta));
     }

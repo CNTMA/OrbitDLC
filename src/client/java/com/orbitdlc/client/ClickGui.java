@@ -2,396 +2,442 @@ package com.orbitdlc.client;
 
 import brokke.cc.util.animation.Animation;
 import brokke.cc.util.animation.Easing;
+import brokke.cc.util.render.display.rounded.RoundedRectRenderState;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.orbitdlc.client.module.Category;
 import com.orbitdlc.client.module.Module;
 import com.orbitdlc.client.module.ModuleManager;
 import com.orbitdlc.client.module.PlannedModule;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
 public final class ClickGui extends Screen {
-    private KeyMapping pendingBind;
-    private final Animation openAnim = new Animation();
-    private boolean closing;
+    private enum Column { COMBAT, MOVEMENT, VISUALS, PLAYER, OTHER }
+
+    private static final int ROW = 20;
+    private static final int HEADER = 26;
+    private static final int GAP = 8;
     private final ModuleManager modules;
     private final Screen parent;
+    private final GuiHud hud;
     private final KeyMapping shortcut;
-    private final List<Button> cards = new ArrayList<>();
+    private final Animation entrance = new Animation();
+    private final ColumnPanel[] columns = java.util.Arrays.stream(Column.values())
+            .map(ColumnPanel::new).toArray(ColumnPanel[]::new);
     private final java.util.EnumMap<OrbitLibrary.Tab, OrbitLibrary> libraries =
             new java.util.EnumMap<>(OrbitLibrary.Tab.class);
-    private OrbitLibrary.Tab tab = OrbitLibrary.Tab.VISUALS;
-    private final Animation tabReveal = new Animation();
-    private final Animation tabMarker = new Animation();
+    private OrbitLibrary.Tab library;
+    private KeyMapping pendingBind;
     private EditBox search;
-    private ModuleSettings sidebar;
-    private final Animation settingsReveal = new Animation();
-    private final List<Button> settingControls = new ArrayList<>();
-    private int settingsWidth;
-    private final Animation searchFocus = new Animation();
-    private int page;
-    private int pageCount;
-    private int left;
-    private int top;
-    private int panelWidth;
-    private int panelHeight;
+    private String query = "";
+    private boolean searching;
+    private boolean closing;
+    private int columnWidth, panelHeight, left, top, libraryX, libraryY, libraryWidth, libraryHeight;
+
+    private static final class ColumnPanel {
+        final Column category;
+        final List<AbstractWidget> controls = new ArrayList<>();
+        final Animation content = new Animation(1f);
+        Module selected;
+        ModuleSettings settings;
+        final Animation scrollMotion = new Animation();
+        final List<Integer> originalY = new ArrayList<>();
+        int x, scroll, maxScroll;
+
+        void resetScroll() {
+            scroll = 0;
+            scrollMotion.set(0f);
+        }
+
+        ColumnPanel(Column category) { this.category = category; }
+    }
 
     public ClickGui(ModuleManager modules, Screen parent, KeyMapping shortcut) {
         super(Component.literal("OrbitDLC"));
         this.modules = modules;
         this.parent = parent;
+        this.hud = modules.modules().stream().filter(GuiHud.class::isInstance)
+                .map(GuiHud.class::cast).findFirst().orElseThrow();
         this.shortcut = shortcut;
     }
 
-    @Override
-    protected void init() {
-        String query = search == null ? "" : search.getValue();
-        cards.clear();
-        panelWidth = Math.min(ClickGuiLayout.WIDTH, width - 16);
-        panelHeight = Math.min(ClickGuiLayout.HEIGHT, height - 16);
-        settingsWidth = sidebar == null ? 0 : Math.min(Math.max(0, width - 164),
-                Math.min(200, Math.max(120, width / 3)));
-        panelWidth = Math.min(panelWidth, width - 16 - (sidebar == null ? 0 : settingsWidth + 8));
-        left = (width - panelWidth - (sidebar == null ? 0 : settingsWidth + 8)) / 2;
+    @Override protected void init() {
+        columnWidth = Math.min(130, (width - 24 - GAP * 4) / 5);
+        panelHeight = Math.min(252, height - 63);
+        left = (width - 5 * columnWidth - 4 * GAP) / 2;
         top = (height - panelHeight) / 2;
-        for (OrbitLibrary.Tab entry : OrbitLibrary.Tab.values()) {
-            addRenderableWidget(new SidebarEntry(entry));
-        }
-        settingControls.clear();
-        if (tab.category() == null) {
-            libraries.get(tab).layout(font, left + 98, top, panelWidth - 110, panelHeight);
-            return;
-        }
-        search = new EditBox(font, left + 105, top + 17, panelWidth - 124, 14, Component.literal("Search modules"));
-        search.setBordered(false);
-        search.setHint(uiText("Search modules"));
-        search.addFormatter((text, offset) -> uiText(text).getVisualOrderText());
-        search.setValue(query);
-        search.setResponder(value -> {
-            page = 0;
-            updateCards();
-        });
-        addTabControl(search);
-        if (sidebar != null) {
-            sidebar.embed(left + panelWidth + 8, top, settingsWidth, this::addSettingControl);
-            addSettingControl(new OrbitButton(Component.literal("×"), left + panelWidth + settingsWidth - 12,
-                    top + 7, 14, 14, button -> closeSettings()));
-        }
-        updateCards();
-    }
-
-    private void selectTab(OrbitLibrary.Tab next) {
-        if (next == tab) return;
-        tab = next;
-        page = 0;
-        sidebar = null;
-        if (next.category() == null) {
-            libraries.computeIfAbsent(next, selected -> new OrbitLibrary(this, modules, selected));
-        }
-        tabReveal.set(0f);
         refreshTab();
     }
 
     void refreshTab() {
-        rebuildWidgets();
-    }
-
-    <T extends AbstractWidget> T addTabControl(T widget) {
-        return addWidget(widget);
-    }
-
-    private void addSettingControl(Button button) {
-        settingControls.add(addWidget(button));
-    }
-    private final class SidebarEntry extends Button {
-        @Override
-        public void playDownSound(net.minecraft.client.sounds.SoundManager sounds) {}
-
-        private final Animation highlight = new Animation();
-        private final OrbitLibrary.Tab entry;
-
-        private SidebarEntry(OrbitLibrary.Tab entry) {
-            super(left + 5, top + 27 + entry.ordinal() * 17, 77, 15,
-                    Component.literal(entry.label), button -> selectTab(entry), DEFAULT_NARRATION);
-            this.entry = entry;
+        clearWidgets();
+        int barY = height - 28;
+        var tabs = List.of(OrbitLibrary.Tab.FRIENDS, OrbitLibrary.Tab.CONFIGS,
+                OrbitLibrary.Tab.COSMETICS, OrbitLibrary.Tab.THEMES);
+        int buttonWidth = Math.min(68, (width - 24) / tabs.size());
+        for (int i = 0; i < tabs.size(); i++) {
+            var tab = tabs.get(i);
+            addRenderableWidget(new OrbitButton(Component.literal(tab.label),
+                    width - 8 - (tabs.size() - i) * buttonWidth, barY, buttonWidth - 4, 20, button -> {
+                        library = library == tab ? null : tab;
+                        if (library != null) libraries.computeIfAbsent(tab, key -> new OrbitLibrary(this, modules, key));
+                        refreshTab();
+                    }, () -> library == tab));
         }
 
-        @Override
-        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-            boolean selected = entry == tab;
-            highlight.animate(selected || isHoveredOrFocused() ? 1f : 0f, delta, 11f);
-            rounded(graphics, getX(), getY(), getWidth(), getHeight(), 5,
-                    OrbitButton.blend(0, OrbitTheme.tint(0x48), highlight.value()));
-            int color = OrbitButton.blend(0xFFADB4C2, OrbitTheme.accent(), highlight.value());
-            graphics.text(font, uiText(getMessage().getString()), getX() + 7, getY() + 2, color, false);
+        if (columnWidth > 26 && panelHeight > HEADER + 1) {
+            for (int i = 0; i < columns.length; i++) {
+                var panel = columns[i];
+                panel.x = left + i * (columnWidth + GAP);
+                layoutColumn(panel);
+            }
         }
-    }
-
-    private void updateCards() {
-        cards.forEach(this::removeWidget);
-        cards.clear();
-        String query = search.getValue().strip().toLowerCase(Locale.ROOT);
-        var matches = modules.modules(tab.category()).stream()
-                .filter(module -> module.id().replace('_', ' ').contains(query)
-                        || name(module).toLowerCase(Locale.ROOT).contains(query)
-                        || module.description().toLowerCase(Locale.ROOT).contains(query))
-                .sorted(java.util.Comparator.comparing(module -> module instanceof PlannedModule))
-                .toList();
-        int columns = panelWidth >= 340 ? 2 : 1;
-        int rows = Math.max(1, (panelHeight - 72) / 29);
-        int capacity = rows * columns;
-        pageCount = Math.max(1, (matches.size() + capacity - 1) / capacity);
-        page = Math.clamp(page, 0, pageCount - 1);
-        int cardWidth = (panelWidth - 110 - (columns - 1) * 6) / columns;
-        int start = page * capacity;
-        for (int i = start; i < Math.min(start + capacity, matches.size()); i++) {
-            Module module = matches.get(i);
-            int cell = i - start;
-            Button card = new ModuleCard(module, left + 98 + cell % columns * (cardWidth + 6),
-                    top + 38 + cell / columns * 29, cardWidth);
-            card.active = !(module instanceof PlannedModule);
-            cards.add(addTabControl(card));
+        if (library != null) {
+            libraryWidth = Math.min(library == OrbitLibrary.Tab.THEMES ? 194 : 343, width - 16);
+            libraryHeight = Math.min(library == OrbitLibrary.Tab.THEMES ? 232 : 250, height - 42);
+            libraryX = width - libraryWidth - 9;
+            libraryY = height - libraryHeight - 34;
+            libraries.get(library).layout(font, libraryX, libraryY, libraryWidth, libraryHeight);
         }
-        if (pageCount > 1) {
-            addPageButton("<", -1, left + panelWidth - 81);
-            addPageButton(">", 1, left + panelWidth - 35);
+        if (searching && library == null) {
+            int w = Math.min(200, width - 24);
+            search = new GlassInput(font, (width - w) / 2, 5, w, 21, "Search modules");
+            search.setValue(query);
+            search.setResponder(value -> {
+                query = value;
+                for (var panel : columns) { panel.selected = null; panel.resetScroll(); }
+                rebuildColumns();
+            });
+            addRenderableWidget(search);
+            setInitialFocus(search);
         }
     }
 
-    private final class ModuleCard extends Button {
-        @Override
-        public void playDownSound(net.minecraft.client.sounds.SoundManager sounds) {}
+    private void rebuildColumns() {
+        for (var panel : columns) {
+            for (var widget : panel.controls) removeWidget(widget);
+            if (columnWidth > 26 && panelHeight > HEADER + 1) layoutColumn(panel);
+        }
+    }
 
+    <T extends AbstractWidget> T addTabControl(T widget) { return addWidget(widget); }
+
+    private void layoutColumn(ColumnPanel panel) {
+        panel.controls.clear();
+        panel.originalY.clear();
+        panel.settings = null;
+        int bodyHeight = panelHeight - HEADER;
+        if (panel.selected != null) {
+            panel.settings = settingsFor(panel.selected);
+            if (panel.settings != null) {
+                var settings = panel.settings;
+                settings.embed(panel.x, top + HEADER, columnWidth, panel.controls::add);
+                int contentBottom = panel.controls.stream().mapToInt(w -> w.getY() + w.getHeight())
+                        .max().orElse(top + HEADER);
+                panel.maxScroll = Math.max(0, contentBottom - top - panelHeight + 6);
+                registerScrollingControls(panel);
+                var back = new OrbitButton(Component.literal("‹"), panel.x + columnWidth - 21,
+                        top + 4, 16, 17, button -> showModules(panel));
+                panel.controls.add(back);
+                if (library == null) addWidget(back);
+                return;
+            }
+        }
+
+        String filter = query.strip().toLowerCase(Locale.ROOT);
+        var list = modules.modules().stream()
+                .filter(module -> !(module instanceof PlannedModule) && columnFor(module) == panel.category)
+                .filter(module -> name(module).toLowerCase(Locale.ROOT).contains(filter)
+                        || module.id().replace('_', ' ').contains(filter))
+                .sorted(Comparator.comparing(ClickGui::name, String.CASE_INSENSITIVE_ORDER)).toList();
+        panel.maxScroll = Math.max(0, list.size() * ROW - bodyHeight + 1);
+        for (int i = 0; i < list.size(); i++) {
+            panel.controls.add(new ModuleRow(list.get(i), panel, top + HEADER + i * ROW));
+        }
+        registerScrollingControls(panel);
+    }
+
+    private void registerScrollingControls(ColumnPanel panel) {
+        panel.scroll = Math.clamp(panel.scroll, 0, panel.maxScroll);
+        for (var widget : panel.controls) {
+            panel.originalY.add(widget.getY());
+            if (library == null) addWidget(widget);
+        }
+        positionScrollingControls(panel);
+    }
+
+    private void positionScrollingControls(ColumnPanel panel) {
+        int offset = Math.round(Math.clamp(panel.scrollMotion.value(), 0f, panel.maxScroll));
+        for (int i = 0; i < panel.originalY.size(); i++) {
+            var widget = panel.controls.get(i);
+            widget.setY(panel.originalY.get(i) - offset);
+            widget.visible = insideBody(widget);
+        }
+    }
+
+    private boolean insideBody(AbstractWidget widget) {
+        return widget.getY() >= top + HEADER && widget.getY() + widget.getHeight() <= top + panelHeight;
+    }
+
+    private void showModules(ColumnPanel panel) {
+        pendingBind = null;
+        panel.selected = null;
+        panel.content.set(0f);
+        panel.resetScroll();
+        refreshTab();
+    }
+
+    private static Column columnFor(Module module) {
+        return switch (module.id()) {
+            case "mace_swap", "mace_helper", "hitboxes", "target_esp" -> Column.COMBAT;
+            case "trail", "elytra_swap", "quick_rocket", "jump_circles", "jump_particles", "landing_particles", "particle_trails",
+                    "steady_view" -> Column.MOVEMENT;
+            case "skin", "nametags", "viewmodel", "swing_animations", "shader_hand", "chinahat", "click_pearl", "held_durability" -> Column.PLAYER;
+            case "theme", "gui", "no_render", "aspectratio" -> Column.OTHER;
+            default -> module.category() == Category.VISUALS ? Column.VISUALS : Column.OTHER;
+        };
+    }
+
+    private ModuleSettings settingsFor(Module module) {
+        return switch (module) {
+            case BlockOverlay overlay -> overlay.settings(this);
+            case ShaderSky sky -> sky.settings(this);
+            case ShaderHand hand -> hand.settings(this);
+            case Skin skin -> skin.settings(this);
+            case ElytraSwap elytra -> elytra.settings(this);
+            case MaceSwap swap -> swap.settings(this);
+            case MaceHelper helper -> helper.settings(this);
+            case UtilityModules.QuickUse use -> use.settings(this);
+            case AspectRatio ratio -> ratio.settings(this);
+            case Optimization optimization -> optimization.settings(this);
+            case Animations animations -> animations.settings(this);
+            case Trail trail -> trail.settings(this);
+            case Bloom bloom -> bloom.settings(this);
+            case MotionBlur motionBlur -> motionBlur.settings(this);
+            case Beautiful beautiful -> beautiful.settings(this);
+            case CustomFog fog -> fog.settings(this);
+            case NoRender noRender -> noRender.settings(this);
+            case Viewmodel viewmodel -> viewmodel.settings(this);
+            case SwingAnimations swingAnimations -> swingAnimations.settings(this);
+            case Ambience ambience -> ambience.settings(this);
+            case GuiHud hud -> hud.settings(this);
+            case JumpCircles circles -> circles.settings(this);
+            case WorldParticles particles -> particles.settings(this);
+            case TargetEsp target -> target.settings(this);
+            case Hitboxes hitboxes -> hitboxes.settings(this);
+            default -> null;
+        };
+    }
+
+    private final class ModuleRow extends Button {
         private final Module module;
-        private final Animation toggle = new Animation();
+        private final ColumnPanel panel;
         private final Animation hover = new Animation();
-        private final Animation reveal = new Animation();
+        private final Animation enabled = new Animation();
 
-        private ModuleCard(Module module, int x, int y, int width) {
-            super(x, y, width, 24, label(module), button -> {
+        ModuleRow(Module module, ColumnPanel panel, int y) {
+            super(panel.x + 4, y, columnWidth - 8, ROW, Component.literal(name(module)), button -> {
                 module.setEnabled(!module.isEnabled());
                 GuiAudio.toggle(module.isEnabled());
-                button.setMessage(label(module));
             }, DEFAULT_NARRATION);
             this.module = module;
-            toggle.set(module.isEnabled() ? 1f : 0f);
+            enabled.set(module.isEnabled() ? 1f : 0f);
+            this.panel = panel;
         }
 
-        @Override
-        public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-            if (event.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT && isMouseOver(event.x(), event.y())) {
-                ModuleSettings settings = switch (module) {
-                    case ShaderSky sky -> sky.settings(ClickGui.this);
-                    case ShaderHand hand -> hand.settings(ClickGui.this);
-                    case MaceSwap swap -> swap.settings(ClickGui.this);
-                    case MaceHelper helper -> helper.settings(ClickGui.this);
-                    case UtilityModules.QuickUse use -> use.settings(ClickGui.this);
-                    case AspectRatio aspectRatio -> aspectRatio.settings(ClickGui.this);
-                    case Optimization optimization -> optimization.settings(ClickGui.this);
-                    case Beautiful beautiful -> beautiful.settings(ClickGui.this);
-                    case CustomFog fog -> fog.settings(ClickGui.this);
-                    case NoRender noRender -> noRender.settings(ClickGui.this);
-                    case Viewmodel viewmodel -> viewmodel.settings(ClickGui.this);
-                    case Ambience ambience -> ambience.settings(ClickGui.this);
-                    case GuiHud hud -> hud.settings(ClickGui.this);
-                    case JumpCircles circles -> circles.settings(ClickGui.this);
-                    case WorldParticles particles -> particles.settings(ClickGui.this);
-                    case TargetEsp target -> target.settings(ClickGui.this);
-                    case Hitboxes hitboxes -> hitboxes.settings(ClickGui.this);
-                    default -> null;
-                };
-                if (settings == null) return false;
-                sidebar = settings;
-                settingsReveal.set(0f);
-                rebuildWidgets();
+        @Override public void playDownSound(net.minecraft.client.sounds.SoundManager sounds) {}
+
+        @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+            if (event.button() == InputConstants.MOUSE_BUTTON_RIGHT && isMouseOver(event.x(), event.y())) {
+                if (settingsFor(module) == null) return false;
+                panel.selected = module;
+                panel.content.set(0f);
+                panel.resetScroll();
+                refreshTab();
                 return true;
             }
             return super.mouseClicked(event, doubleClick);
         }
-        @Override
-        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-            int x = getX();
-            int y = getY();
-            int w = getWidth();
-            hover.animate(active && isHoveredOrFocused() ? 1f : 0f, delta, 11f);
-            reveal.animate(1f, delta, 14f, Easing.CUBIC_OUT);
-            float visibility = Math.max(0.1f, reveal.value());
-            GlassBackdrop.submit(graphics, x, y, w, 24, 7);
-            int surface = OrbitButton.blend(0x38201A20, OrbitTheme.tint(0x62), hover.value());
-            rounded(graphics, x, y, w, 24, 5, OrbitButton.blend(surface & 0xFFFFFF, surface, visibility));
-            int solid = active ? 0xFFF0F2F8 : 0xFFA9B0BE;
-            int textColor = OrbitButton.blend(solid & 0xFFFFFF, solid, visibility);
-            var title = font.substrByWidth(uiText(name(module)), Math.max(0, w - 39));
-            graphics.text(font, uiText(title.getString()), x + 7, y + 8, textColor, false);
-            if (module instanceof PlannedModule) {
-                graphics.text(font, uiText("WIP"), x + w - 25, y + 8, textColor, false);
-                return;
-            }
-            toggle.animate(module.isEnabled() ? 1f : 0f, delta, 8f);
-            float progress = Math.clamp(toggle.value(), 0f, 1f);
-            int track = OrbitButton.blend(0xFF443A44, OrbitTheme.accent(), progress);
-            int switchX = x + w - 27;
-            rounded(graphics, switchX, y + 8, 20, 9, 5, track);
-            rounded(graphics, switchX + 1 + Math.round(11f * progress), y + 9, 7, 7, 4, 0xFFF5F6FA);
+
+        @Override protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+            hover.animate(isHoveredOrFocused() ? 1f : 0f, delta, 10f);
+            enabled.animate(module.isEnabled() ? 1f : 0f, delta, 5f, Easing.CUBIC_OUT);
+            float active = Math.clamp(enabled.value(), 0f, 1f);
+            int bg = OrbitButton.blend(OrbitTheme.tint(Math.round(active * 52)), OrbitTheme.tint(0x76), hover.value());
+            RoundedRectRenderState.submit(graphics, getX(), getY() + 1, getWidth(), ROW - 2, 5, bg);
+            var text = font.substrByWidth(ui(name(module)), Math.max(0, getWidth() - 22));
+            graphics.text(font, ui(text.getString()), getX() + 5, getY() + 6,
+                    module.isEnabled() ? OrbitTheme.foreground() : OrbitButton.blend(OrbitTheme.foreground(), OrbitTheme.surface(), 0.22f), false);
+            int switchX = getX() + getWidth() - 18;
+            RoundedRectRenderState.submit(graphics, switchX, getY() + 7, 15, 7, 4,
+                    OrbitButton.blend(0x65493B52, OrbitTheme.accent(), active));
+            RoundedRectRenderState.submit(graphics, switchX + 1 + Math.round(active * 8), getY() + 8,
+                    5, 5, 3, 0xFFFDF7FF);
         }
     }
 
-    private static void rounded(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int radius, int color) {
-        brokke.cc.util.render.display.rounded.RoundedRectRenderState.submit(graphics, x, y, w, h, radius, color);
-    }
+    private static final net.minecraft.network.chat.Style ICON_STYLE = net.minecraft.network.chat.Style.EMPTY
+            .withFont(new net.minecraft.network.chat.FontDescription.Resource(com.orbitdlc.OrbitDLC.id("icons")));
 
-    private void addPageButton(String text, int direction, int x) {
-        var button = new OrbitButton(Component.literal(text), x, top + panelHeight - 28, 23, 18, pressed -> {
-            page += direction;
-            updateCards();
-        });
-        button.active = page + direction >= 0 && page + direction < pageCount;
-        cards.add(addTabControl(button));
-    }
-
-    private static Component uiText(String text) {
-        return Component.literal(text).setStyle(OrbitButton.TYPE);
-    }
+    private static Component ui(String text) { return Component.literal(text).setStyle(OrbitButton.TYPE); }
 
     private static String name(Module module) {
         return switch (module.id()) {
             case "shadersky" -> "ShaderSky";
-            case "fullbright" -> "FullBright";
-            default -> {
-                var name = new StringBuilder();
-                for (String word : module.id().split("_+")) {
-                    name.append(switch (word) {
-                        case "esp", "gui", "hud", "fps", "rpc", "fov" -> word.toUpperCase(Locale.ROOT);
+            case "shadercrystal" -> "ShaderCrystal";
+            case "chinahat" -> "ChinaHat";
+            case "aspectratio" -> "AspectRatio";
+            case "block_overlay" -> "BlockOverlay";
+            case "swing_animations" -> "SwingAnimations";
+            default -> java.util.Arrays.stream(module.id().split("_"))
+                    .map(word -> switch (word) {
+                        case "esp", "gui", "hud", "fps", "fov" -> word.toUpperCase(Locale.ROOT);
                         default -> Character.toUpperCase(word.charAt(0)) + word.substring(1);
-                    });
-                }
-                yield name.toString();
-            }
+                    }).collect(java.util.stream.Collectors.joining(" "));
         };
     }
 
-    private static Component label(Module module) {
-        String state = module instanceof PlannedModule ? "  [WIP]" : (module.isEnabled() ? "  ON" : "  OFF");
-        return Component.literal(name(module) + state);
-    }
-
-    @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        openAnim.animate(closing ? 0f : 1f, delta, 2f, closing ? Easing.CUBIC_IN_OUT : Easing.EXPO_OUT);
-        float progress = Math.clamp(openAnim.value(), 0f, 1f);
-        float scale = 0.92f + 0.08f * progress;
-        float slide = (1f - progress) * 8f;
-        float cx = width * 0.5f;
-        float cy = height * 0.5f;
+    @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        entrance.animate(closing ? 0f : 1f, delta, closing ? 4.5f : 2.35f, Easing.LINEAR);
+        float slide = 6f * (1f - Math.clamp(entrance.value(), 0f, 1f));
+        if (parent instanceof MainMenu) GlassBackdrop.menuBackground(graphics, width, height);
+        else GlassBackdrop.clickGuiBackground(graphics);
+        graphics.nextStratum();
         graphics.pose().pushMatrix();
-        graphics.pose().translate(cx, cy);
-        graphics.pose().scale(scale);
-        graphics.pose().translate(-cx, -cy + slide);
+        graphics.pose().translate(0, -slide);
         try {
-            renderPanel(graphics, mouseX, mouseY, delta);
+            if (columnWidth > 26 && panelHeight > HEADER + 1) {
+                for (var panel : columns) {
+                    float progress = Math.clamp((entrance.value() - panel.category.ordinal() * 0.075f) / 0.70f, 0f, 1f);
+                    progress = 1f - (float) Math.pow(1f - progress, 3);
+                    graphics.pose().pushMatrix();
+                    try {
+                        graphics.pose().translate(panel.x + columnWidth / 2f, top + 36f * (1f - progress));
+                        graphics.pose().scale(0.88f + 0.12f * progress);
+                        graphics.pose().translate(-panel.x - columnWidth / 2f, -top);
+                        drawColumn(graphics, panel, mouseX, mouseY, delta);
+                    } finally {
+                        graphics.pose().popMatrix();
+                    }
+                }
+            }
+            if (library != null && libraryHeight > 0) {
+                GlassBackdrop.submit(graphics, libraryX, libraryY, libraryWidth, libraryHeight, 13);
+                RoundedRectRenderState.submit(graphics, libraryX, libraryY, libraryWidth, libraryHeight, 13, (OrbitTheme.surface() & 0xFFFFFF) | 0x39000000);
+                libraries.get(library).render(graphics, mouseX, mouseY, delta);
+            }
+            super.extractRenderState(graphics, mouseX, mouseY, delta);
         } finally {
             graphics.pose().popMatrix();
         }
     }
 
-    private void renderPanel(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        GlassBackdrop.submit(graphics, left, top, panelWidth, panelHeight);
-        graphics.text(font, title.copy().setStyle(OrbitButton.HEADING), left + 12, top + 10, OrbitTheme.accent());
-        int divider = left + 11 + ClickGuiLayout.SIDEBAR_WIDTH;
-        graphics.fill(divider, top + 24, divider + 1, top + panelHeight - 12, 0x50D9CDEF);
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
-        tabMarker.animate(tab.ordinal(), delta, 9f, Easing.CUBIC_OUT);
-        rounded(graphics, left + 3, top + 31 + Math.round(tabMarker.value() * 17), 2, 7, 1, OrbitTheme.accent());
-        tabReveal.animate(1f, delta, 8f, Easing.CUBIC_OUT);
-        int reveal = tabRevealHeight();
-        if (reveal > 0 && panelWidth > 103) {
-            graphics.enableScissor(left + 97, top, left + panelWidth - 6, top + reveal);
-            try {
-                if (brokke.cc.util.render.display.rounded.RoundedRectRenderState.hasDrawableScissor(graphics)) {
-                    if (tab.category() != null) renderVisuals(graphics, mouseX, mouseY, delta);
-                    else libraries.get(tab).render(graphics, mouseX, mouseY, delta);
+    private void drawColumn(GuiGraphicsExtractor graphics, ColumnPanel panel, int mx, int my, float delta) {
+        GlassBackdrop.clickGuiPanel(graphics, panel.x, top, columnWidth, panelHeight, 13);
+        RoundedRectRenderState.submit(graphics, panel.x, top, columnWidth, panelHeight, 13, (OrbitTheme.surface() & 0xFFFFFF) | 0x39000000);
+        String category = panel.category.name().toLowerCase(Locale.ROOT);
+        String title = Character.toUpperCase(category.charAt(0)) + category.substring(1);
+        graphics.text(font, Component.literal(title).setStyle(OrbitButton.HEADING), panel.x + 9, top + 8, OrbitTheme.foreground(), false);
+        if (panel.settings == null) drawCategoryIcon(graphics, panel);
+        graphics.fill(panel.x + 7, top + HEADER - 1, panel.x + columnWidth - 7, top + HEADER, (OrbitTheme.outline() & 0xFFFFFF) | 0xAA000000);
+        if (panel.settings != null) panel.controls.getLast().extractRenderState(graphics, mx, my, delta);
+        graphics.enableScissor(panel.x + 2, top + HEADER, panel.x + columnWidth - 2, top + panelHeight - 1);
+        panel.scrollMotion.animate(panel.scroll, delta, 6.5f, Easing.CUBIC_OUT);
+        positionScrollingControls(panel);
+        graphics.pose().pushMatrix();
+        try {
+            panel.content.animate(1f, delta, 4.2f, Easing.CUBIC_OUT);
+            graphics.pose().translate(14f * (1f - panel.content.value()), 0);
+            if (panel.settings != null) {
+                graphics.pose().pushMatrix();
+                graphics.pose().translate(0, -Math.clamp(panel.scrollMotion.value(), 0f, panel.maxScroll));
+                panel.settings.drawHeading(graphics);
+                graphics.pose().popMatrix();
+            }
+            for (int i = 0; i < panel.originalY.size(); i++) {
+                var widget = panel.controls.get(i);
+                if (widget.getY() >= top + panelHeight || widget.getY() + widget.getHeight() <= top + HEADER) continue;
+                boolean interactive = widget.visible;
+                widget.visible = true;
+                try {
+                    widget.extractRenderState(graphics, interactive ? mx : -1, interactive ? my : -1, delta);
+                } finally {
+                    widget.visible = interactive;
                 }
-            } finally {
-                graphics.disableScissor();
+            }
+        } finally {
+            graphics.pose().popMatrix();
+            graphics.disableScissor();
+        }
+    }
+
+    private void drawCategoryIcon(GuiGraphicsExtractor graphics, ColumnPanel panel) {
+        int x = panel.x + columnWidth - 15, y = top + 8;
+        int color = OrbitTheme.foreground();
+        String glyph = switch (panel.category) {
+            case COMBAT -> "V";
+            case MOVEMENT -> "g";
+            case VISUALS -> "W";
+            case PLAYER -> "n";
+            case OTHER -> "%";
+        };
+        var icon = Component.literal(glyph).setStyle(ICON_STYLE);
+        graphics.centeredText(font, icon, x + 3, y, color);
+    }
+
+    @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
+        if (library != null && libraries.get(library).scroll(x, y, vertical)) return true;
+        if (library == null && y >= top && y < top + panelHeight && vertical != 0) {
+            for (var panel : columns) {
+                if (x < panel.x || x >= panel.x + columnWidth) continue;
+                int step = (int) Math.round(Math.clamp(vertical, -6, 6) * 36);
+                panel.scroll = Math.clamp(panel.scroll - step, 0, panel.maxScroll);
+                return true;
             }
         }
-        renderSettings(graphics, mouseX, mouseY, delta);
+        return super.mouseScrolled(x, y, horizontal, vertical);
     }
 
-    private int tabRevealHeight() {
-        return Math.round((panelHeight - 8) * Math.clamp(tabReveal.value(), 0f, 1f));
-    }
-
-    @Override
-    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+    @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (pendingBind != null) {
-            assignBind(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button()));
+            assignBind(InputConstants.Type.MOUSE.getOrCreate(event.button()));
             return true;
         }
-        if (event.x() >= left + 97 && event.x() < left + panelWidth
-                && event.y() >= top + tabRevealHeight() && event.y() < top + panelHeight) {
-            return false;
-        }
-        return super.mouseClicked(event, doubleClick);
+        if (closing) return false;
+        if (super.mouseClicked(event, doubleClick)) return true;
+        return library == null && event.button() == InputConstants.MOUSE_BUTTON_LEFT
+                && HudDrag.startDrag(hud, event.x(), event.y());
     }
 
-    private void renderVisuals(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        GlassBackdrop.submit(graphics, left + 98, top + 11, panelWidth - 110, 20, 7);
-        searchFocus.animate(search.isFocused() ? 1f : 0f, delta, 10f);
-        rounded(graphics, left + 97, top + 10, panelWidth - 108, 22, 7,
-                OrbitButton.blend(0x00705A6A, 0xBDE8C7DF, searchFocus.value()));
-        rounded(graphics, left + 98, top + 11, panelWidth - 110, 20, 6, 0x30261C25);
-        if (cards.isEmpty()) {
-            graphics.text(font, uiText("No matching modules"), left + 100, top + 45, 0xFFB9B1C6);
-        }
-        if (pageCount > 1) {
-            graphics.centeredText(font, uiText(Integer.toString(page + 1)), left + panelWidth - 46,
-                    top + panelHeight - 23, 0xFFE1CFFF);
-        }
-        search.extractRenderState(graphics, mouseX, mouseY, delta);
-        cards.forEach(card -> card.extractRenderState(graphics, mouseX, mouseY, delta));
+    @Override public boolean mouseReleased(MouseButtonEvent event) {
+        return (event.button() == InputConstants.MOUSE_BUTTON_LEFT && HudDrag.finishDrag()) || super.mouseReleased(event);
     }
 
-    private void renderSettings(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        if (sidebar != null && settingsWidth > 0 && panelHeight > 0) {
-            settingsReveal.animate(1f, delta, 7f, Easing.CUBIC_OUT);
-            int x = left + panelWidth + 8;
-            int visibleWidth = Math.min(settingsWidth, Math.round(settingsWidth * settingsReveal.value()));
-            if (visibleWidth < 2) return;
-            graphics.enableScissor(x, top, x + visibleWidth, top + panelHeight);
-            try {
-                if (!brokke.cc.util.render.display.rounded.RoundedRectRenderState.hasDrawableScissor(graphics)) return;
-                sidebar.drawSidebar(graphics, panelHeight, visibleWidth);
-                for (Button button : settingControls) {
-                    if (button.getX() + button.getWidth() <= x + visibleWidth) {
-                        button.extractRenderState(graphics, mouseX, mouseY, delta);
-                    }
-                }
-            } finally {
-                graphics.disableScissor();
-            }
-        }
-    }
-
-    @Override
-    public boolean keyPressed(KeyEvent event) {
+    @Override public boolean keyPressed(KeyEvent event) {
         if (pendingBind != null) {
-            var input = com.mojang.blaze3d.platform.InputConstants.getKey(event);
-            if (event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE || shortcut.matches(event)) {
+            if (event.key() == InputConstants.KEY_ESCAPE || shortcut.matches(event)) {
                 pendingBind = null;
                 refreshTab();
-            } else {
-                assignBind(event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_BACKSPACE
-                        ? com.mojang.blaze3d.platform.InputConstants.UNKNOWN : input);
-            }
+            } else assignBind(event.key() == InputConstants.KEY_BACKSPACE ? InputConstants.UNKNOWN : InputConstants.getKey(event));
+            return true;
+        }
+        if (event.hasControlDown() && event.key() == InputConstants.KEY_F) {
+            library = null;
+            searching = !searching;
+            if (!searching) query = "";
+            refreshTab();
             return true;
         }
         if (shortcut.matches(event)) {
@@ -401,28 +447,9 @@ public final class ClickGui extends Screen {
         return super.keyPressed(event);
     }
 
-    @Override
-    public void onClose() {
-        if (closing) return;
-        if (sidebar != null) {
-            closeSettings();
-            return;
-        }
-        closing = true;
-        GuiAudio.close();
-    }
+    void captureBind(KeyMapping mapping) { pendingBind = mapping; }
 
-    private void closeSettings() {
-        pendingBind = null;
-        sidebar = null;
-        rebuildWidgets();
-    }
-
-    void captureBind(KeyMapping mapping) {
-        pendingBind = mapping;
-    }
-
-    private void assignBind(com.mojang.blaze3d.platform.InputConstants.Key key) {
+    private void assignBind(InputConstants.Key key) {
         pendingBind.setKey(key);
         KeyMapping.resetMapping();
         minecraft.options.save();
@@ -430,15 +457,17 @@ public final class ClickGui extends Screen {
         refreshTab();
     }
 
-    @Override
-    public void tick() {
-        if (closing && openAnim.isDone() && openAnim.value() == 0f) {
-            minecraft.gui.setScreen(parent);
+    @Override public void onClose() {
+        if (!closing) {
+            closing = true;
+            HudDrag.finishDrag();
+            GuiAudio.close();
         }
     }
 
-    @Override
-    public boolean isPauseScreen() {
-        return false;
+    @Override public void tick() {
+        if (closing && entrance.isDone() && entrance.value() == 0f) minecraft.gui.setScreen(parent);
     }
+
+    @Override public boolean isPauseScreen() { return false; }
 }

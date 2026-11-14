@@ -101,10 +101,7 @@ final class Hitboxes extends Module {
         return new ModuleSettings("Hitboxes", parent) {
             @Override
             protected void init() {
-                chip("Bloom · " + bloom + "%", 0, button -> {
-                    bloom = bloom >= 100 ? 0 : Math.min(100, bloom + 25);
-                    button.setMessage(Component.literal("Bloom · " + bloom + "%"));
-                });
+                slider("Bloom", "%", 0, 0, 100, () -> bloom, value -> bloom = value);
             }
         };
     }

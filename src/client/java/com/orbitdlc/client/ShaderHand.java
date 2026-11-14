@@ -140,14 +140,8 @@ public final class ShaderHand extends Module {
                     flameColor = flameColor.next();
                     button.setMessage(Component.literal("Color · " + flameColor.label));
                 });
-                chip("Height · " + heightPercent + "%", 1, button -> {
-                    heightPercent = heightPercent >= 250 ? 50 : Math.min(250, heightPercent + 25);
-                    button.setMessage(Component.literal("Height · " + heightPercent + "%"));
-                });
-                chip("Bloom · " + bloomPercent + "%", 2, button -> {
-                    bloomPercent = bloomPercent >= 150 ? 0 : Math.min(150, bloomPercent + 25);
-                    button.setMessage(Component.literal("Bloom · " + bloomPercent + "%"));
-                });
+                slider("Height", "%", 24, 50, 250, () -> heightPercent, value -> heightPercent = value);
+                slider("Bloom", "%", 48, 0, 150, () -> bloomPercent, value -> bloomPercent = value);
                 chip(smoke ? "Smoke · ON" : "Smoke · OFF", 3, button -> {
                     smoke = !smoke;
                     button.setMessage(Component.literal(smoke ? "Smoke · ON" : "Smoke · OFF"));

@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 final class Cosmetics {
     record Entry(String id, String name, String category) {}
     private static final java.nio.file.Path EQUIPPED_FILE = OrbitProfiles.ROOT.resolve("cosmetics.txt");
+    private static final List<Entry> CATALOG = readCatalog();
     private static final LinkedHashMap<String, Entry> EQUIPPED = new LinkedHashMap<>();
 
     static {
@@ -55,7 +56,17 @@ final class Cosmetics {
 
     private Cosmetics() {}
 
-    static List<Entry> catalog() {
+    static List<Entry> catalog() { return CATALOG; }
+
+    static List<Entry> resolve(List<String> ids) {
+        var slots = new LinkedHashMap<String, Entry>();
+        for (var entry : CATALOG) {
+            if (ids.contains(entry.id())) slots.putIfAbsent(slot(entry), entry);
+        }
+        return List.copyOf(slots.values());
+    }
+
+    private static List<Entry> readCatalog() {
         var source = Cosmetics.class.getResourceAsStream("/assets/orbitdlc/cosmetics.txt");
         if (source == null) return List.of();
         try (var reader = new BufferedReader(new InputStreamReader(source, StandardCharsets.UTF_8))) {

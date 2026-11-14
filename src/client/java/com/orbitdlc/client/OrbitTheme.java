@@ -40,12 +40,6 @@ enum OrbitTheme {
         flowing = !flowing;
     }
 
-    static void custom(String accent, String tint) {
-        int nextAccent = parseColor(accent);
-        int nextTint = parseColor(tint);
-        restore(CUSTOM, nextAccent, nextTint, flowing);
-    }
-
     static String hex(int color) {
         return String.format(java.util.Locale.ROOT, "#%06X", color & 0xFFFFFF);
     }
@@ -62,6 +56,26 @@ enum OrbitTheme {
         customAccent = accent | 0xFF000000;
         customTint = tint | 0xFF000000;
         flowing = flow;
+    }
+
+    private static int surface = 0xFF111016;
+    private static int foreground = 0xFFFDF7FF;
+    private static int outline = 0xFF59415D;
+
+    static int surface() { return surface; }
+    static int foreground() { return foreground; }
+    static int outline() { return outline; }
+
+    static void palette(int background, int text, int border) {
+        surface = background | 0xFF000000;
+        foreground = text | 0xFF000000;
+        outline = border | 0xFF000000;
+    }
+
+    static void custom(String accent, String tint, String background, String text, String border) {
+        int nextAccent = parseColor(accent), nextTint = parseColor(tint);
+        palette(parseColor(background), parseColor(text), parseColor(border));
+        restore(CUSTOM, nextAccent, nextTint, flowing);
     }
 
     static int accent() { return color(true); }

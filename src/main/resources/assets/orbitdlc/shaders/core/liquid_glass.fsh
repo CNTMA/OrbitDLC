@@ -31,6 +31,7 @@ float glassCoverage(vec2 p, vec2 b, vec4 r, float smoothness, float band) {
 }
 
 void main() {
+    bool strongGlass = (radii.x & 32768) != 0;
     vec2 Size = (halfExtent + 1.0) * 2.0;
     vec2 FragCoord = localPos / Size + 0.5;
     vec4 Radius = vec4(float(radii.x & 255) * 0.5);
@@ -72,7 +73,7 @@ void main() {
 
     // Магнитуда — 1:1 из drawLiquidGlass: refractStrength = strength * distortion * 2.5,
     // смещение по нормали в ДОЛЯХ ректа. DistortStrength играет роль distortion из референса.
-    float refractStrength = strength * DistortStrength * 2.5;
+    float refractStrength = strength * DistortStrength * (strongGlass ? 7.2 : 2.5);
 
     // Доля ректа -> texCoord. FragCoord — нормализованные координаты ректа (0..1), TexCoord —
     // его срез в полноэкранном буфере. Якобиан fwidth(TexCoord)/fwidth(FragCoord) = «весь рект
@@ -83,7 +84,7 @@ void main() {
 
     // Хроматическая аберрация (порт): красный смещается сильнее, синий слабее — цветная
     // кайма у кромки. ab — половина расщепления из drawLiquidGlass (aberration * 0.4).
-    float ab = Aberration * 0.4;
+    float ab = Aberration * (strongGlass ? 0.62 : 0.4);
     vec3 col;
     col.r = texture(Sampler0, clamp(TexCoord + refractDir * (1.0 + ab), 0.0, 1.0)).r;
     col.g = texture(Sampler0, clamp(TexCoord + refractDir,              0.0, 1.0)).g;
@@ -110,6 +111,17 @@ void main() {
     float fresnel = smoothstep(0.0, 1.0, strength) * 0.1;
     float rim = exp(-abs(sdCover) * 1.25);
     col += vec3(fresnel) + vec3(0.25, 0.21, 0.23) * rim;
+
+    if (strongGlass) {
+        float phase = float(radii.y) * 0.000863;
+        vec2 lens = FragCoord - 0.5;
+        vec2 bend = lens * (0.032 + 0.013 * sin(phase + lens.y * 7.0)) * fragToTex;
+        vec3 inner = texture(Sampler0, clamp(TexCoord + bend, 0.0, 1.0)).rgb;
+        col = mix(col, inner * 0.72 + vec3(0.035, 0.023, 0.058), 0.52 * (1.0 - strength));
+        float bevel = exp(-abs(sdCover + 2.2) * 0.28);
+        float highlight = 0.34 + 0.66 * pow(0.5 + 0.5 * sin(phase + lens.y * 5.0 - lens.x * 3.0), 4.0);
+        col += bevel * highlight * vec3(0.28, 0.23, 0.37);
+    }
 
     float a = alpha * BaseAlpha * vertexColor.a;
     a = clamp(a, 0.0, 1.0);

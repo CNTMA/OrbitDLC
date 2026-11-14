@@ -69,25 +69,8 @@ public final class AspectRatio extends Module {
             protected void init() {
                 choices(List.of("4:3", "16:9", "Custom"), i -> mode.ordinal() == i,
                         i -> apply(Mode.values()[i]));
-                stepper("Width", 29, true);
-                stepper("Height", 53, false);
-            }
-
-            private void stepper(String label, int offset, boolean horizontal) {
-                int y = contentY() + offset;
-                var value = new OrbitButton(Component.literal(label + " · " + (horizontal ? width : height)),
-                        contentX() + 22, y, contentWidth() - 44, 19, button -> {});
-                value.active = false;
-                settingWidget(value);
-                for (int delta : new int[]{-1, 1}) {
-                    int x = delta < 0 ? contentX() : contentX() + contentWidth() - 19;
-                    settingWidget(new OrbitButton(Component.literal(delta < 0 ? "-" : "+"), x, y, 19, 19, button -> {
-                        if (horizontal) width = Math.clamp(width + delta, 1, 64);
-                        else height = Math.clamp(height + delta, 1, 64);
-                        apply(Mode.CUSTOM);
-                        value.setMessage(Component.literal(label + " · " + (horizontal ? width : height)));
-                    }));
-                }
+                slider("Width", "", 36, 1, 64, () -> width, value -> { width = value; apply(Mode.CUSTOM); });
+                slider("Height", "", 60, 1, 64, () -> height, value -> { height = value; apply(Mode.CUSTOM); });
             }
 
             @Override

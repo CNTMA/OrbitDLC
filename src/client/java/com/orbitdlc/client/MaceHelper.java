@@ -63,10 +63,7 @@ public final class MaceHelper extends Module {
         return new ModuleSettings("MaceHelper", parent) {
             @Override
             protected void init() {
-                chip("Height · " + height + " m", 0, button -> {
-                    height = height == 12 ? 1 : height + 1;
-                    button.setMessage(Component.literal("Height · " + height + " m"));
-                });
+                slider("Height", " m", 0, 1, 12, () -> height, value -> height = value);
             }
         };
     }

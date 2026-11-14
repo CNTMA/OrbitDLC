@@ -28,6 +28,7 @@ public final class GlassBackdrop extends RoundedRectRenderState {
                     .build());
     }
 
+    private static final RenderPipeline CLICK_GUI = pipeline("click_gui_background");
     private static TextureTarget snapshot;
     private static boolean requested;
     private final TextureSetup texture;
@@ -35,7 +36,7 @@ public final class GlassBackdrop extends RoundedRectRenderState {
 
     private GlassBackdrop(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int corners, RenderPipeline effect) {
         super(new Matrix3x2f(graphics.pose()), x, y, w, h, corners,
-                effect == MENU ? (int) ((System.nanoTime() / 16_000_000L) & 65535) : corners,
+                (effect == MENU || effect == CLICK_GUI || (corners & 32768) != 0) ? (int) ((System.nanoTime() / 16_000_000L) & 65535) : corners,
                 -1, -1, -1, -1, graphics.scissorStack.peek());
         this.effect = effect;
         texture = TextureSetup.singleTexture(effect == MENU
@@ -71,11 +72,24 @@ public final class GlassBackdrop extends RoundedRectRenderState {
         RoundedRectRenderState.submit(graphics, x, y, w, h, Math.min(12, h / 2),
                 !active ? 0x660B121C : hover ? OrbitTheme.tint(0x44) : 0x160B121C);
     }
+    static void clickGuiPanel(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int radius) {
+        submit(graphics, x, y, w, h, radius, PIPELINE, true);
+    }
+
+    static void clickGuiBackground(GuiGraphicsExtractor graphics) {
+        submit(graphics, 0, 0, graphics.guiWidth(), graphics.guiHeight(), 0, CLICK_GUI);
+    }
+
     static void saturation(GuiGraphicsExtractor graphics) {
         submit(graphics, 0, 0, graphics.guiWidth(), graphics.guiHeight(), 0, SATURATION);
     }
 
     private static void submit(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int cornerRadius, RenderPipeline effect) {
+        submit(graphics, x, y, w, h, cornerRadius, effect, false);
+    }
+
+    private static void submit(GuiGraphicsExtractor graphics, int x, int y, int w, int h,
+                               int cornerRadius, RenderPipeline effect, boolean strongGlass) {
         var main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
         var source = main.getColorTexture();
         if (source == null || w <= 0 || h <= 0 || !hasDrawableScissor(graphics)) return;
@@ -88,7 +102,7 @@ public final class GlassBackdrop extends RoundedRectRenderState {
         }
         int radius = Math.min(cornerRadius * 2, Math.min(w, h));
         requested = true;
-        graphics.guiRenderState.addGuiElement(new GlassBackdrop(graphics, x, y, w, h, radius | radius << 8, effect));
+        graphics.guiRenderState.addGuiElement(new GlassBackdrop(graphics, x, y, w, h, radius | radius << 8 | (strongGlass ? 32768 : 0), effect));
     }
 
     public static void capture() {

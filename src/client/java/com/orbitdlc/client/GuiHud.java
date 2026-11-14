@@ -24,6 +24,7 @@ public final class GuiHud extends Module {
     private final Animation effectsEntrance = new Animation();
     private LivingEntity previousTarget;
     private boolean slotInitialized;
+    private long hotbarShown;
     private static final net.minecraft.resources.Identifier MUSIC_COVER = OrbitDLC.id("music_cover");
     private String coverSource;
     private boolean coverReady;
@@ -35,6 +36,7 @@ public final class GuiHud extends Module {
         targetEntrance.set(0f);
         effectsEntrance.set(0f);
         slotInitialized = false;
+        hotbarShown = System.nanoTime();
         previousTarget = null;
     }
 
@@ -44,7 +46,7 @@ public final class GuiHud extends Module {
         previousTarget = null;
     }
 
-    private enum Widget {
+    enum Widget {
         BRAND("Session status"), EFFECTS("Effects"), BINDS("Keybinds"), TARGET("Target health"),
         HOTBAR("Glass hotbar"), POSITION("Coordinates"), FPS("FPS"), CLOCK("Local time"),
         SPEED("Movement speed"), BIOME("Biome"), MUSIC("Music Player");
@@ -71,7 +73,10 @@ public final class GuiHud extends Module {
     public void loadSettings(com.google.gson.JsonObject settings) {
         var widgets = java.util.EnumSet.noneOf(Widget.class);
         for (var widget : settings.getAsJsonArray("widgets")) {
-            widgets.add(Widget.valueOf(widget.getAsString()));
+            switch (widget.getAsString()) {
+                case "ISLAND", "SERVER", "TPS" -> {}
+                default -> widgets.add(Widget.valueOf(widget.getAsString()));
+            }
         }
         if (!widgets.contains(Widget.MUSIC)) stopMusic();
         visible.clear();
@@ -142,6 +147,8 @@ public final class GuiHud extends Module {
         int barWidth = slot * 9 + 8;
         int x = (graphics.guiWidth() - barWidth) / 2;
         int y = graphics.guiHeight() - slot - 8;
+        if (Animations.plays(Animations.Part.HOTBAR))
+            y += Math.round(12 * Animations.remaining(hotbarShown, 400));
         var bar = HudDrag.position(HudDrag.Widget.HOTBAR, graphics, x, y, barWidth, slot + 6);
         x = bar.x();
         y = bar.y();
@@ -152,7 +159,8 @@ public final class GuiHud extends Module {
             slotSlide.set(selected);
             slotInitialized = true;
         }
-        slotSlide.animate(selected, 0f, 13f, Easing.CUBIC_OUT);
+        if (Animations.plays(Animations.Part.SLOT)) slotSlide.animate(selected, 0f, 8f, Easing.CUBIC_OUT);
+        else slotSlide.set(selected);
         for (int i = 0; i < 9; i++) {
             shape(graphics, x + 4 + slot * i, y + 3, slot - 2, slot, 7, 0x456C5665);
         }
@@ -204,7 +212,7 @@ public final class GuiHud extends Module {
         }
 
         int y = 36;
-        if (visible.contains(Widget.BINDS) && (shortcut.isDown() || client.gui.screen() instanceof ClickGui)) {
+        if (visible.contains(Widget.BINDS) && (shortcut.isDown() || editing(client))) {
             String key = shortcut.getTranslatedKeyMessage().getString();
             int cardWidth = Math.max(110, client.font.width(text(key)) + client.font.width(text("ClickGUI")) + 25);
             var box = HudDrag.position(HudDrag.Widget.KEYS, graphics, 12, y, cardWidth, 34);
@@ -217,10 +225,11 @@ public final class GuiHud extends Module {
             var effects = client.player.getActiveEffects().stream()
                     .sorted(java.util.Comparator.comparing(effect -> effect.getEffect().value().getDescriptionId()))
                     .limit(Math.clamp((height - y - 65) / 12, 0, 8)).toList();
-            if (!effects.isEmpty()) {
+            if (!effects.isEmpty() || editing(client)) {
                 int cardWidth = Math.min(160, width - 24);
                 if (cardWidth >= 60) {
-                    effectsEntrance.animate(1f, 0f, 8f, Easing.CUBIC_OUT);
+                    if (Animations.plays(Animations.Part.EFFECTS)) effectsEntrance.animate(1f, 0f, 5f, Easing.CUBIC_OUT);
+                    else effectsEntrance.set(1f);
                     int cardX = 12 - Math.round(10f * (1f - effectsEntrance.value()));
                     var box = HudDrag.position(HudDrag.Widget.EFFECTS, graphics, cardX, y, cardWidth, 22 + effects.size() * 12);
                     cardX = box.x();
@@ -248,7 +257,8 @@ public final class GuiHud extends Module {
         }
         if (visible.contains(Widget.POSITION)) {
             var pos = player.blockPosition();
-            infoY = info(graphics, client, infoY, pos.getX() + " / " + pos.getY() + " / " + pos.getZ());
+            infoY = stat(graphics, client, HudDrag.Widget.COORDS, infoY,
+                    pos.getX() + " / " + pos.getY() + " / " + pos.getZ());
         }
         if (visible.contains(Widget.SPEED)) {
             double speed = player.getDeltaMovement().horizontalDistance() * 20;
@@ -261,7 +271,7 @@ public final class GuiHud extends Module {
 
         LivingEntity target = client.hitResult instanceof EntityHitResult hit
                 && hit.getEntity() instanceof LivingEntity living ? living : null;
-        if (target == null && client.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen) {
+        if (target == null && editing(client)) {
             target = client.player;
         }
         if (visible.contains(Widget.TARGET) && target != null) {
@@ -270,7 +280,8 @@ public final class GuiHud extends Module {
                 targetHealth.set(0f);
                 previousTarget = target;
             }
-            targetEntrance.animate(1f, 0f, 8f, Easing.CUBIC_OUT);
+            if (Animations.plays(Animations.Part.TARGET)) targetEntrance.animate(1f, 0f, 5f, Easing.CUBIC_OUT);
+            else targetEntrance.set(1f);
             int x = width - 151 + Math.round(14f * (1f - targetEntrance.value()));
             int targetY = Math.max(38, height * 2 / 3);
             var box = HudDrag.position(HudDrag.Widget.TARGET, graphics, x, targetY, 136, 37);
@@ -280,9 +291,10 @@ public final class GuiHud extends Module {
             graphics.text(client.font, text(target.getDisplayName().getString()), x + 10, targetY + 7, 0xFFF5F8FF, false);
             shape(graphics, x + 10, targetY + 22, 116, 5, 2, 0x6D8298BA);
             float health = Math.clamp(target.getHealth() / Math.max(1f, target.getMaxHealth()), 0f, 1f);
-            targetHealth.animate(health, 0f, 10f, Easing.CUBIC_OUT);
+            if (Animations.plays(Animations.Part.TARGET)) targetHealth.animate(health, 0f, 8f, Easing.CUBIC_OUT);
+            else targetHealth.set(health);
             int fill = Math.round(116 * Math.clamp(targetHealth.value(), 0f, 1f));
-            if (fill > 0) shape(graphics, x + 10, targetY + 22, fill, 5, 2, 0xFFE3EDFF);
+            if (fill > 0) shape(graphics, x + 10, targetY + 22, fill, 5, 2, OrbitTheme.accent());
         } else { previousTarget = null; }
     }
 
@@ -301,7 +313,7 @@ public final class GuiHud extends Module {
         int width = Math.min(172, graphics.guiWidth() - 16);
         if (width < 122) return;
         var track = music.poll();
-        boolean editing = client.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen;
+        boolean editing = editing(client);
         updateMusicCover(client, track.cover());
         if (!track.hasTitle() && !editing) return;
         var box = HudDrag.position(HudDrag.Widget.MUSIC, graphics, 12, graphics.guiHeight() - 112, width, 62);
@@ -387,6 +399,20 @@ public final class GuiHud extends Module {
     private static void draw(GuiGraphicsExtractor graphics, Minecraft client, String label, int x, int y, int color) {
         graphics.text(client.font, text(label), x, y, color, false);
     }
+    private static boolean editing(Minecraft client) {
+        return client.gui.screen() instanceof ClickGui
+                || client.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen;
+    }
+
+    private static int stat(GuiGraphicsExtractor graphics, Minecraft client, HudDrag.Widget widget, int y, String value) {
+        int w = Math.min(graphics.guiWidth() - 16, client.font.width(text(value)) + 18);
+        if (w < 18) return y;
+        var box = HudDrag.position(widget, graphics, graphics.guiWidth() - w - 8, y, w, 20);
+        panel(graphics, box.x(), box.y(), w, 20);
+        draw(graphics, client, client.font.substrByWidth(text(value), w - 14).getString(), box.x()+7, box.y()+5, TEXT);
+        return y + 24;
+    }
+
     private static int info(GuiGraphicsExtractor graphics, Minecraft client, int y, String value) {
         int w = client.font.width(text(value)) + 22;
         int x = graphics.guiWidth() - w - 12;

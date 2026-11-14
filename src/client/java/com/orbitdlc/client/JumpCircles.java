@@ -202,14 +202,8 @@ final class JumpCircles extends Module {
                     seal = !seal;
                     button.setMessage(Component.literal(seal ? "Style · Seal" : "Style · Shockwave"));
                 });
-                chip("Radius · " + radius, 0, button -> {
-                    radius = radius >= 3f ? 1.5f : radius + 0.5f;
-                    button.setMessage(Component.literal("Radius · " + radius));
-                });
-                chip("Duration · " + lifetime / 1_000_000 + " ms", 1, button -> {
-                    lifetime = lifetime >= 1_150_000_000L ? 550_000_000L : lifetime + 300_000_000L;
-                    button.setMessage(Component.literal("Duration · " + lifetime / 1_000_000 + " ms"));
-                });
+                slider("Radius", " cm", 0, 150, 300, () -> Math.round(radius * 100), value -> radius = value / 100f);
+                slider("Duration", " ms", 24, 550, 1150, () -> (int) (lifetime / 1_000_000), value -> lifetime = value * 1_000_000L);
             }
         };
     }

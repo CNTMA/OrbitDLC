@@ -3,7 +3,6 @@ package com.orbitdlc.client;
 import com.orbitdlc.client.module.Category;
 import com.orbitdlc.client.module.Module;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 public final class Ambience extends Module {
     static final Ambience INSTANCE = new Ambience();
@@ -58,28 +57,27 @@ public final class Ambience extends Module {
 
     ModuleSettings settings(Screen parent) {
         return new ModuleSettings("Ambience", parent) {
+            private int weatherHeading;
+
             @Override
             protected void init() {
-                int x = contentX();
-                int y = contentY();
-                settingWidget(new OrbitButton(label("Time", time), x, y, contentWidth(), 22, button -> {
-                    time = Time.values()[(time.ordinal() + 1) % Time.values().length];
-                    button.setMessage(label("Time", time));
-                }));
-                settingWidget(new OrbitButton(label("Wet world", wet ? "ON" : "OFF"), x, y + 27, contentWidth(), 22, button -> {
-                    wet = !wet;
-                    button.setMessage(label("Wet world", wet ? "ON" : "OFF"));
-                }));
-                settingWidget(new OrbitButton(label("Weather", weather), x, y + 54, contentWidth(), 22, button -> {
-                    weather = Weather.values()[(weather.ordinal() + 1) % Weather.values().length];
-                    button.setMessage(label("Weather", weather));
-                }));
+                var times = Time.values();
+                int offset = choicesAt(java.util.List.of("Server", "Dawn", "Day", "Sunset", "Night"),
+                        index -> time == times[index], index -> time = times[index], 0);
+                weatherHeading = offset + 7;
+                var weathers = Weather.values();
+                offset = choicesAt(java.util.List.of("Server", "Clear", "Rain", "Storm"),
+                        index -> weather == weathers[index], index -> weather = weathers[index], weatherHeading + 13);
+                toggleAt("Wet world", offset + 8, () -> wet, () -> wet = !wet);
             }
 
-        };
-    }
+            @Override protected String summary() { return "Time"; }
 
-    private static Component label(String name, Object value) {
-        return Component.literal(name + " · " + value);
+            @Override void drawHeading(net.minecraft.client.gui.GuiGraphicsExtractor graphics) {
+                super.drawHeading(graphics);
+                graphics.text(font, net.minecraft.network.chat.Component.literal("Weather").setStyle(OrbitButton.TYPE),
+                        contentX(), contentY() + weatherHeading, 0xFFD0C7D5, false);
+            }
+        };
     }
 }

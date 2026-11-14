@@ -2,47 +2,59 @@ package com.orbitdlc.client;
 
 import com.orbitdlc.OrbitDLC;
 import com.orbitdlc.OrbitPresence;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.minecraft.client.Minecraft;
-import org.joml.Matrix4f;
-import org.joml.Vector4f;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FontDescription;
+import net.minecraft.network.chat.Style;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-final class OrbitBadges {
+public final class OrbitBadges {
+    private static final Style LOGO = Style.EMPTY.withFont(new FontDescription.Resource(OrbitDLC.id("badge")));
     private static Set<UUID> confirmed = Set.of();
+    private static Map<UUID, List<Cosmetics.Entry>> outfits = Map.of();
+    private static List<String> sent;
 
     private OrbitBadges() {}
+
+    public static Component decorate(UUID player, Component name) {
+        if (!confirmed.contains(player)) return name;
+        return Component.literal("\uE000").setStyle(LOGO).append(Component.literal(" ")).append(name.copy());
+    }
+
+    static List<Cosmetics.Entry> outfit(UUID player) {
+        return outfits.getOrDefault(player, List.of());
+    }
 
     static void register() {
         ClientPlayNetworking.registerGlobalReceiver(OrbitPresence.TYPE,
                 (payload, context) -> confirmed = Set.copyOf(payload.players()));
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> confirmed = Set.of());
-
-        var projection = new Matrix4f();
-        var clip = new Vector4f();
-        var icon = OrbitDLC.id("black_hole.png");
-        HudElementRegistry.addLast(OrbitDLC.id("player_badges"), (graphics, delta) -> {
-            var client = Minecraft.getInstance();
-            if (confirmed.isEmpty() || client.player == null || client.level == null) return;
-            var camera = client.gameRenderer.mainCamera();
-            camera.getViewRotationProjectionMatrix(projection);
-            float tick = delta.getGameTimeDeltaPartialTick(false);
-            for (var player : client.level.players()) {
-                if (player == client.player || !confirmed.contains(player.getUUID())
-                        || player.isInvisibleTo(client.player) || player.distanceToSqr(client.player) > 1024
-                        || !client.player.hasLineOfSight(player)) continue;
-                var offset = player.getPosition(tick).add(0, player.getBbHeight() + 0.55, 0)
-                        .subtract(camera.position());
-                projection.transform(clip.set((float) offset.x, (float) offset.y, (float) offset.z, 1));
-                if (clip.w <= 0.001f || Math.abs(clip.x) > clip.w || Math.abs(clip.y) > clip.w) continue;
-                int x = Math.round((0.5f + 0.5f * clip.x / clip.w) * graphics.guiWidth());
-                int y = Math.round((0.5f - 0.5f * clip.y / clip.w) * graphics.guiHeight());
-                graphics.blit(icon, x - 8, y - 8, x + 8, y + 8, 0f, 1f, 0f, 1f);
+        ClientPlayNetworking.registerGlobalReceiver(OrbitPresence.Outfits.TYPE, (payload, context) -> {
+            var received = new HashMap<UUID, List<Cosmetics.Entry>>();
+            for (var outfit : payload.players()) {
+                var items = Cosmetics.resolve(outfit.items());
+                if (!items.isEmpty()) received.put(outfit.player(), items);
             }
+            outfits = Map.copyOf(received);
+        });
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            confirmed = Set.of();
+            outfits = Map.of();
+            sent = null;
+        });
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.player == null || client.player.tickCount % 20 != 0
+                    || !ClientPlayNetworking.canSend(OrbitPresence.Wear.TYPE)) return;
+            var items = Cosmetics.equipped().stream().map(Cosmetics.Entry::id).toList();
+            if (items.equals(sent)) return;
+            ClientPlayNetworking.send(new OrbitPresence.Wear(items));
+            sent = items;
         });
     }
 }

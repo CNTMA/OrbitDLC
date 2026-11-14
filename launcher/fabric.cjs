@@ -5,7 +5,7 @@ const { createHash, randomUUID } = require('node:crypto');
 const game = '26.3';
 const loader = '0.20.1';
 const version = `fabric-loader-${loader}-${game}`;
-const api = '0.165.0+26.3';
+const api = '0.166.2+26.3';
 
 async function download(url) {
   const response = await fetch(url, { signal: AbortSignal.timeout(90000) });
@@ -72,6 +72,46 @@ async function parallel(items, action) {
   if (failure) throw failure;
 }
 
+async function listMods(launcher, mods) {
+  const read = async folder => {
+    const entries = await fs.readdir(folder, { withFileTypes: true }).catch(error => {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    });
+    return entries.filter(entry => entry.isFile() && /\.jar$/i.test(entry.name)).map(entry => entry.name);
+  };
+  const [bundled, installed] = await Promise.all([
+    read(path.join(launcher, 'bundled-mods')),
+    read(mods)
+  ]);
+  const names = new Map(bundled.map(name => [name.toLowerCase(), name]));
+  for (const name of installed) {
+    const key = name.toLowerCase();
+    if (!names.has(key)) names.set(key, name);
+  }
+  return [...names.values()].sort((a, b) => a.localeCompare(b));
+}
+
+async function installBundledMods(launcher, mods) {
+  await fs.mkdir(mods, { recursive: true });
+  const apiJar = path.join(launcher, 'bundled-mods', 'fabric-api.jar');
+  const apiDestination = path.join(mods, 'fabric-api.jar');
+  await fs.copyFile(apiJar, apiDestination).catch(async error => {
+    if (error.code !== 'ENOENT') throw error;
+    const base = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/';
+    const url = `${base}${encodeURIComponent(api)}/fabric-api-${encodeURIComponent(api)}.jar`;
+    const hash = (await (await download(url + '.sha1')).text()).trim();
+    await install(apiDestination, url, hash);
+  });
+  await fs.copyFile(path.join(launcher, 'bundled-mods', 'OrbitVisuals.jar'), path.join(mods, 'orbitvisuals.jar'))
+    .catch(error => { if (error.code === 'ENOENT') throw new Error('В комплекте лаунчера отсутствует OrbitVisuals.jar'); throw error; });
+  const bundled = await fs.readdir(path.join(launcher, 'bundled-mods'), { withFileTypes: true });
+  for (const entry of bundled) {
+    if (!entry.isFile() || !/\.jar$/i.test(entry.name) || /^(fabric-api|orbitvisuals)\.jar$/i.test(entry.name)) continue;
+    await fs.copyFile(path.join(launcher, 'bundled-mods', entry.name), path.join(mods, entry.name));
+  }
+}
+
 async function prepareFabric(launcher, cache, username, log, instance = path.join(launcher, 'instance')) {
   if (!/^[a-zA-Z0-9_]{3,16}$/.test(username)) throw new Error('Ник: от 3 до 16 букв, цифр или подчёркиваний');
   const mods = path.join(instance, 'mods');
@@ -134,18 +174,7 @@ async function prepareFabric(launcher, cache, username, log, instance = path.joi
     if (++count % 500 === 0) log(`Ресурсы: ${count}/${objects.length}\n`);
   });
 
-  await fs.mkdir(mods, { recursive: true });
-  const apiJar = path.join(launcher, 'bundled-mods', 'fabric-api.jar');
-  const apiDestination = path.join(mods, 'fabric-api.jar');
-  await fs.copyFile(apiJar, apiDestination).catch(async error => {
-    if (error.code !== 'ENOENT') throw error;
-    const base = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/';
-    const url = `${base}${encodeURIComponent(api)}/fabric-api-${encodeURIComponent(api)}.jar`;
-    const hash = (await (await download(url + '.sha1')).text()).trim();
-    await install(apiDestination, url, hash);
-  });
-  await fs.copyFile(path.join(launcher, 'bundled-mods', 'OrbitVisuals.jar'), path.join(mods, 'orbitvisuals.jar'))
-    .catch(error => { if (error.code === 'ENOENT') throw new Error('В комплекте лаунчера отсутствует OrbitVisuals.jar'); throw error; });
+  await installBundledMods(launcher, mods);
 
   const uuid = createHash('md5').update('OfflinePlayer:' + username).digest();
   uuid[6] = (uuid[6] & 15) | 48;
@@ -166,4 +195,4 @@ async function prepareFabric(launcher, cache, username, log, instance = path.joi
   };
 }
 
-module.exports = { prepareFabric };
+module.exports = { prepareFabric, installBundledMods, listMods };

@@ -85,25 +85,11 @@ public final class Viewmodel extends Module {
             @Override
             protected void init() {
                 for (var control : Control.values()) {
-                    int y = contentY() + control.ordinal() * 19;
-                    int x = contentX();
-                    var reset = new OrbitButton(Component.literal(control.display(value(control))),
-                            x + 20, y, contentWidth() - 40, 16, button -> {
-                                values.remove(control);
-                                button.setMessage(Component.literal(control.display(value(control))));
-                            });
-                    settingWidget(reset);
-                    settingWidget(new OrbitButton(Component.literal("−"), x, y, 17, 16,
-                            button -> adjust(control, -control.step, reset)));
-                    settingWidget(new OrbitButton(Component.literal("+"), x + contentWidth() - 17, y, 17, 16,
-                            button -> adjust(control, control.step, reset)));
+                    slider(control.key(), "", control.ordinal() * 24, control.min, control.max,
+                            () -> value(control), value -> values.put(control, value));
                 }
             }
         };
     }
 
-    private void adjust(Control control, int delta, Button label) {
-        values.put(control, Math.clamp(value(control) + delta, control.min, control.max));
-        label.setMessage(Component.literal(control.display(value(control))));
-    }
 }

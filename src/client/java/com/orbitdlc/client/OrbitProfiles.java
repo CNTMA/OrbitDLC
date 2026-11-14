@@ -42,6 +42,9 @@ final class OrbitProfiles {
         root.addProperty("customAccent", OrbitTheme.customAccent());
         root.addProperty("customTint", OrbitTheme.customTint());
         root.addProperty("themeFlow", OrbitTheme.flowing());
+        root.addProperty("themeSurface", OrbitTheme.surface());
+        root.addProperty("themeForeground", OrbitTheme.foreground());
+        root.addProperty("themeOutline", OrbitTheme.outline());
         var states = new JsonObject();
         for (var module : modules.modules()) {
             if (module instanceof PlannedModule) continue;
@@ -92,6 +95,12 @@ final class OrbitProfiles {
             throw error;
         }
         OrbitTheme.restore(theme, accent, tint, flow);
+        OrbitTheme.palette(themeColor(root, "themeSurface", 0xFF111016),
+                themeColor(root, "themeForeground", 0xFFFDF7FF), themeColor(root, "themeOutline", 0xFF59415D));
+    }
+
+    private static int themeColor(JsonObject root, String key, int fallback) {
+        return root.has(key) ? root.get(key).getAsInt() : fallback;
     }
 
     static void loadSession(ModuleManager modules) {

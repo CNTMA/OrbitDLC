@@ -36,7 +36,14 @@ class OrbitButton extends Button {
         selection.animate(selected.getAsBoolean() ? 1f : 0f, delta, 9f);
         int base = blend(0x40251C25, OrbitTheme.tint(0x88), selection.value());
         int surface = active ? blend(base, OrbitTheme.accent(), 0.35f * hover.value()) : 0x58282027;
-        background(graphics, surface);
+        if (Minecraft.getInstance().gui.screen() instanceof ClickGui) {
+            int radius = Math.min(7, getHeight() / 2);
+            GlassBackdrop.clickGuiPanel(graphics, getX(), getY(), getWidth(), getHeight(), radius);
+            RoundedRectRenderState.submit(graphics, getX(), getY(), getWidth(), getHeight(), radius,
+                    blend(0x24181220, OrbitTheme.tint(0x70), Math.max(hover.value(), selection.value())));
+        } else {
+            background(graphics, surface);
+        }
         graphics.centeredText(Minecraft.getInstance().font, Component.literal(getMessage().getString()).setStyle(TYPE),
                 getX() + getWidth() / 2, getY() + (getHeight() - 9) / 2, active ? 0xFFF4EDFF : 0xFF9B95AB);
     }

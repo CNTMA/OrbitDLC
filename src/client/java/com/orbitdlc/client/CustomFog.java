@@ -120,10 +120,7 @@ public final class CustomFog extends Module {
         return new ModuleSettings("CustomFog", parent) {
             @Override
             protected void init() {
-                chip("Density · " + density + "%", 0, button -> {
-                    density = density >= 100 ? 25 : Math.min(100, density + 25);
-                    button.setMessage(Component.literal("Density · " + density + "%"));
-                });
+                slider("Density", "%", 0, 25, 100, () -> density, value -> density = value);
                 chip("Color · " + fogColor.label, 1, button -> {
                     fogColor = fogColor.next();
                     button.setMessage(Component.literal("Color · " + fogColor.label));

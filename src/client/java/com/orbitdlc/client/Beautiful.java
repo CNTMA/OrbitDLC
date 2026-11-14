@@ -108,10 +108,7 @@ public final class Beautiful extends Module {
         return new ModuleSettings("Beautiful", parent) {
             @Override
             protected void init() {
-                chip("Strength · " + strength + "%", 0, button -> {
-                    strength = strength >= 150 ? 50 : Math.min(150, strength + 25);
-                    button.setMessage(Component.literal("Strength · " + strength + "%"));
-                });
+                slider("Strength", "%", 0, 50, 150, () -> strength, value -> strength = value);
             }
         };
     }

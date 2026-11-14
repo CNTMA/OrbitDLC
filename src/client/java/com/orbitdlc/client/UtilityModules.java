@@ -21,12 +21,15 @@ final class UtilityModules {
         var rocket = new QuickUse("quick_rocket", Items.FIREWORK_ROCKET,
                 mapping("quick_rocket", InputConstants.UNKNOWN.getType(), InputConstants.UNKNOWN.getValue()));
         var swap = new MaceSwap(unbound("mace_swap"));
+        var elytraSwap = new ElytraSwap(unbound("elytra_swap"));
+        modules.register(elytraSwap);
         modules.register(pearl);
         modules.register(swap);
         modules.register(MaceHelper.INSTANCE);
         modules.register(rocket);
         UtilityHud.register(modules);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            elytraSwap.tick(client);
             pearl.tick(client);
             swap.tick(client);
             MaceHelper.INSTANCE.tick(client);

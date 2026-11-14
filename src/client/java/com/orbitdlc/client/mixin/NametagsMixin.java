@@ -1,6 +1,7 @@
 package com.orbitdlc.client.mixin;
 
 import com.orbitdlc.client.UtilityHud;
+import com.orbitdlc.client.OrbitBadges;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.world.entity.Entity;
@@ -16,10 +17,13 @@ abstract class NametagsMixin {
             at = @At("TAIL"))
     private void orbitdlc$hideVanillaPlayerTag(Entity entity, EntityRenderState state, float partialTick,
             double nameDistance, double scoreDistance, CallbackInfo callback) {
-        if (entity instanceof Player && UtilityHud.nametagsEnabled()) {
+        if (!(entity instanceof Player player)) return;
+        if (UtilityHud.nametagsEnabled()) {
             state.nameTag = null;
             state.scoreText = null;
             state.nameTagAttachment = null;
+        } else if (state.nameTag != null) {
+            state.nameTag = OrbitBadges.decorate(player.getUUID(), state.nameTag);
         }
     }
 }

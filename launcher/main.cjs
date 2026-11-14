@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const fs = require('node:fs/promises');
 const { spawn, execFileSync } = require('node:child_process');
 const { existsSync } = require('node:fs');
-const { prepareFabric } = require('./fabric.cjs');
+const { prepareFabric, listMods } = require('./fabric.cjs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -47,7 +47,7 @@ async function launch(username) {
   try {
     const java = javaExecutable();
     const cache = process.env.APPDATA && path.join(process.env.APPDATA, '.minecraft');
-    const { instance, args } = await prepareFabric(__dirname, cache, username,
+    const { args } = await prepareFabric(__dirname, cache, username,
       progress => publish('starting', progress.trim()), instance);
     const argumentFile = path.join(instance, 'launch.args');
     await fs.writeFile(argumentFile, args.map(arg => '"' + arg.replaceAll('\\', '\\\\').replaceAll('"', '\\"') + '"').join('\n'));
@@ -120,14 +120,7 @@ app.whenReady().then(() => {
   });
   handle('orbit:folder', () => openFolder(instance));
   handle('orbit:mods-folder', () => openFolder(mods));
-  handle('orbit:mods', async () => {
-    const entries = await fs.readdir(mods, { withFileTypes: true }).catch(error => {
-      if (error.code === 'ENOENT') return [];
-      throw error;
-    });
-    return entries.filter(entry => entry.isFile() && /\.jar$/i.test(entry.name))
-      .map(entry => entry.name).sort((a, b) => a.localeCompare(b));
-  });
+  handle('orbit:mods', () => listMods(__dirname, mods));
   window.loadFile(path.join(__dirname, 'index.html'));
 });
 app.on('window-all-closed', () => app.quit());

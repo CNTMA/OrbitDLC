@@ -26,10 +26,16 @@ public final class CosmeticLayer extends RenderLayer<AvatarRenderState, PlayerMo
     public void submit(PoseStack pose, SubmitNodeCollector collector, int light, AvatarRenderState state,
                        float yaw, float pitch) {
         var player = Minecraft.getInstance().player;
-        if (player == null || state.id != player.getId() || state.isInvisible) return;
+        if (player == null || state.isInvisible) return;
+        boolean local = state.id == player.getId();
+        var equipped = local ? Cosmetics.equipped()
+                : player.level().getEntity(state.id) instanceof net.minecraft.world.entity.player.Player remote
+                        ? OrbitBadges.outfit(remote.getUUID()) : java.util.List.<Cosmetics.Entry>of();
+        boolean hat = local && ChinaHat.INSTANCE.isEnabled();
+        if (equipped.isEmpty() && !hat) return;
         var playerModel = getParentModel();
         playerModel.setupAnim(state);
-        if (ChinaHat.INSTANCE.isEnabled()) {
+        if (hat) {
             pose.pushPose();
             try {
                 playerModel.head.translateAndRotate(pose);
@@ -39,7 +45,7 @@ public final class CosmeticLayer extends RenderLayer<AvatarRenderState, PlayerMo
             }
         }
         double seconds = System.nanoTime() * 1e-9;
-        for (var entry : Cosmetics.equipped()) {
+        for (var entry : equipped) {
             var model = GeckoLibResources.getBakedModels().getModel(OrbitDLC.id(entry.id()));
             if (model.isMissingno()) continue;
             var motion = CosmeticMotion.byId(entry.id());
