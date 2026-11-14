@@ -9,20 +9,20 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.client.resources.sounds.SoundInstance;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Pose;
 
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.FloatControl;
 import java.awt.Color;
+import java.io.BufferedInputStream;
 
 public final class BadTrip extends Module {
     static final BadTrip INSTANCE = new BadTrip();
     private static final double BEAT_SECONDS = 0.52;
-    private SimpleSoundInstance music;
+    private Clip music;
     private long started;
-    private long retryAt;
+    private long playbackRequest;
 
     private BadTrip() { super("bad_trip", Category.VISUALS); }
 
@@ -34,26 +34,55 @@ public final class BadTrip extends Module {
 
     void tick(Minecraft client) {
         if (!isEnabled() || client.level == null) {
-            stop(client);
+            stop();
             return;
         }
-        long now = System.nanoTime();
-        if (started == 0) started = now;
-        var sounds = client.getSoundManager();
-        if (now < retryAt || (music != null && sounds.isActive(music))) return;
-        music = new SimpleSoundInstance(OrbitDLC.id("bad_trip.loop"), SoundSource.MUSIC,
-                0.8f, 1f, RandomSource.create(), true, 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true);
-        sounds.play(music);
-        retryAt = now + 1_000_000_000L;
+        if (started != 0) return;
+        started = System.nanoTime();
+        long request = nextPlaybackRequest();
+        Thread.ofVirtual().start(() -> openMusic(request));
     }
 
-    @Override protected void onDisable() { stop(Minecraft.getInstance()); }
+    private synchronized long nextPlaybackRequest() { return ++playbackRequest; }
 
-    void stop(Minecraft client) {
-        if (music != null) client.getSoundManager().stop(music);
+    private void openMusic(long request) {
+        Clip clip = null;
+        try (var resource = BadTrip.class.getResourceAsStream("/assets/orbitdlc/sounds/bad_trip/loop.wav")) {
+            if (resource == null) throw new java.io.FileNotFoundException("BadTrip loop.wav");
+            try (var audio = AudioSystem.getAudioInputStream(new BufferedInputStream(resource))) {
+                clip = AudioSystem.getClip();
+                clip.open(audio);
+            }
+            if (clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+                var gain = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+                gain.setValue(Math.clamp(-6f, gain.getMinimum(), gain.getMaximum()));
+            }
+            startMusic(request, clip);
+            clip = null;
+        } catch (Exception error) {
+            OrbitDLC.LOGGER.warn("BadTrip audio could not play", error);
+        } finally {
+            if (clip != null) clip.close();
+        }
+    }
+
+    private synchronized void startMusic(long request, Clip clip) {
+        if (request != playbackRequest) {
+            clip.close();
+            return;
+        }
+        clip.loop(Clip.LOOP_CONTINUOUSLY);
+        music = clip;
+    }
+
+    @Override protected void onDisable() { stop(); }
+
+    synchronized void stop() {
+        if (started == 0) return;
+        playbackRequest++;
+        if (music != null) music.close();
         music = null;
         started = 0;
-        retryAt = 0;
     }
 
     public static void dance(LivingEntityRenderState state, PoseStack pose) {
