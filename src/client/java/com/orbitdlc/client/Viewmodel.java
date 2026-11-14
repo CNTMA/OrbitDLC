@@ -7,6 +7,7 @@ import com.orbitdlc.client.module.Category;
 import com.orbitdlc.client.module.Module;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
+import org.joml.Vector3f;
 
 import java.util.EnumMap;
 import java.util.Locale;
@@ -61,6 +62,25 @@ public final class Viewmodel extends Module {
         float scale = model.value(Control.SCALE) / 100f;
         pose.scale(scale, scale, scale);
         pose.translate(0f, 0f, 0.7f);
+    }
+
+    static void translateSwing(PoseStack pose, int side, float blend) {
+        var model = INSTANCE;
+        float inward = 0.10f;
+        float lift = 0.12f;
+        if (model.isEnabled()) {
+            inward += Math.max(0f, side * model.value(Control.X) / 100f) * 0.65f;
+            lift += Math.max(0f, -model.value(Control.Y) / 100f) * 0.75f;
+        }
+        var offset = new Vector3f(-side * inward, lift, -0.17f).mul(blend);
+        if (model.isEnabled()) {
+            // Convert the camera-relative motion to the transformed Viewmodel axes.
+            offset.rotateY((float) Math.toRadians(-model.value(Control.YAW)))
+                    .rotateX((float) Math.toRadians(-model.value(Control.PITCH)))
+                    .rotateZ((float) Math.toRadians(-model.value(Control.ROLL)))
+                    .mul(100f / model.value(Control.SCALE));
+        }
+        pose.translate(offset.x, offset.y, offset.z);
     }
 
     @Override

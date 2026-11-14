@@ -32,6 +32,10 @@ public final class OrbitDLCClient implements ClientModInitializer {
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ShaderCrystal.INSTANCE.close());
         modules.register(Beautiful.INSTANCE);
         modules.register(Bloom.INSTANCE);
+        modules.register(BadTrip.INSTANCE);
+        BadTrip.registerHud();
+        ClientTickEvents.END_CLIENT_TICK.register(BadTrip.INSTANCE::tick);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(BadTrip.INSTANCE::stop);
         modules.register(MotionBlur.INSTANCE);
         modules.register(Trail.INSTANCE);
         ClientTickEvents.END_CLIENT_TICK.register(Trail.INSTANCE::tick);

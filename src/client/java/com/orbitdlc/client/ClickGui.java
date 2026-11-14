@@ -300,6 +300,7 @@ public final class ClickGui extends Screen {
             case "chinahat" -> "ChinaHat";
             case "aspectratio" -> "AspectRatio";
             case "block_overlay" -> "BlockOverlay";
+            case "bad_trip" -> "BadTrip";
             case "swing_animations" -> "SwingAnimations";
             default -> java.util.Arrays.stream(module.id().split("_"))
                     .map(word -> switch (word) {
