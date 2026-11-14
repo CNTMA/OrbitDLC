@@ -65,4 +65,6 @@ void main() {
     color *= smoothstep(-0.26, 0.20, d.y) * 0.86 + 0.14;
     color = vec3(1.0) - exp(-color * uParams.w);
     OutColor = vec4(pow(color, vec3(0.88)), 1.0);
+    float luma = dot(OutColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+    OutColor.rgb = mix(OutColor.rgb, luma * uThemeColor.rgb, 0.65 * uThemeColor.a);
 }

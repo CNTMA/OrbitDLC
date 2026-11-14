@@ -10,14 +10,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Level.class)
 abstract class AmbienceMixin {
-    @Inject(method = "getOverworldClockTime", at = @At("HEAD"), cancellable = true)
-    private void orbitdlc$clock(CallbackInfoReturnable<Long> callback) {
-        if ((Object) this instanceof ClientLevel) {
-            Long time = Ambience.clock();
-            if (time != null) callback.setReturnValue(time);
-        }
-    }
-
     @Inject(method = "getRainLevel", at = @At("HEAD"), cancellable = true)
     private void orbitdlc$rain(float delta, CallbackInfoReturnable<Float> callback) {
         apply(false, callback);
@@ -36,3 +28,4 @@ abstract class AmbienceMixin {
         }
     }
 }
+

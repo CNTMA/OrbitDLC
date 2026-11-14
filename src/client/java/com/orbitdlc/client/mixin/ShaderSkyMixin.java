@@ -21,3 +21,4 @@ abstract class ShaderSkyMixin {
         if (ShaderSky.render(state, renderTarget)) callback.cancel();
     }
 }
+

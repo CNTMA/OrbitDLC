@@ -103,13 +103,13 @@ void main() {
                  + texture(Sampler0, clamp(TexCoord + vec2(0.0, pixel.y) * 2.0, 0.0, 1.0)).rgb
                  + texture(Sampler0, clamp(TexCoord - vec2(0.0, pixel.y) * 2.0, 0.0, 1.0)).rgb;
     col = mix(col, diffuse * 0.25, 0.36 * (1.0 - strength));
-    col = col * 0.56 + vec3(0.020, 0.029, 0.046);
+    col = col * 0.56 + vec3(0.032, 0.024, 0.029);
 
     // Тонкий световой ободок у кромки (порт fresnel, сильно приглушён — яркий белый
     // на тёмном теле читается как свечение).
     float fresnel = smoothstep(0.0, 1.0, strength) * 0.1;
     float rim = exp(-abs(sdCover) * 1.25);
-    col += vec3(fresnel) + vec3(0.18, 0.22, 0.29) * rim;
+    col += vec3(fresnel) + vec3(0.25, 0.21, 0.23) * rim;
 
     float a = alpha * BaseAlpha * vertexColor.a;
     a = clamp(a, 0.0, 1.0);

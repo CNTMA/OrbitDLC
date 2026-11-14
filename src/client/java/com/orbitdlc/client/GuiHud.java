@@ -53,40 +53,44 @@ public final class GuiHud extends Module {
 
     private final java.util.EnumSet<Widget> visible = java.util.EnumSet.range(Widget.BRAND, Widget.HOTBAR);
 
-    net.minecraft.client.gui.screens.Screen settings(net.minecraft.client.gui.screens.Screen parent) {
-        return new net.minecraft.client.gui.screens.Screen(Component.literal("GUI widgets")) {
+    @Override
+    public com.google.gson.JsonObject saveSettings() {
+        var settings = super.saveSettings();
+        var widgets = new com.google.gson.JsonArray();
+        visible.forEach(widget -> widgets.add(widget.name()));
+        settings.add("widgets", widgets);
+        return settings;
+    }
+
+    @Override
+    public void loadSettings(com.google.gson.JsonObject settings) {
+        var widgets = java.util.EnumSet.noneOf(Widget.class);
+        for (var widget : settings.getAsJsonArray("widgets")) {
+            widgets.add(Widget.valueOf(widget.getAsString()));
+        }
+        visible.clear();
+        visible.addAll(widgets);
+    }
+
+    ModuleSettings settings(net.minecraft.client.gui.screens.Screen parent) {
+        return new ModuleSettings("GUI widgets", parent) {
             @Override
             protected void init() {
                 var widgets = Widget.values();
-                int left = (width - 274) / 2;
-                int top = Math.max(16, (height - 164) / 2);
-                for (int index = 0; index < widgets.length; index++) {
-                    Widget widget = widgets[index];
-                    addRenderableWidget(new OrbitButton(widgetLabel(widget), left + index % 2 * 140,
-                            top + index / 2 * 25, 134, 21, button -> {
-                                if (!visible.remove(widget)) visible.add(widget);
-                                button.setMessage(widgetLabel(widget));
-                            }));
-                }
-                addRenderableWidget(new OrbitButton(Component.literal("Back"), left, top + 132, 274, 21,
-                        button -> onClose()));
+                choices(java.util.Arrays.stream(widgets).map(widget -> widget.label).toList(),
+                        index -> visible.contains(widgets[index]), index -> {
+                            Widget widget = widgets[index];
+                            if (!visible.remove(widget)) visible.add(widget);
+                        });
             }
 
             @Override
-            public void onClose() {
-                minecraft.gui.setScreen(parent);
-            }
-
-            @Override
-            public boolean isPauseScreen() {
-                return false;
+            protected String summary() {
+                return "Widgets · " + visible.size() + " / " + Widget.values().length;
             }
         };
     }
 
-    private Component widgetLabel(Widget widget) {
-        return Component.literal(widget.label + (visible.contains(widget) ? " · ON" : " · OFF"));
-    }
 
     GuiHud(KeyMapping shortcut) {
         super("gui", Category.VISUALS);
@@ -102,13 +106,17 @@ public final class GuiHud extends Module {
         HudElementRegistry.replaceElement(VanillaHudElements.HOTBAR, vanilla -> (graphics, delta) -> {
             var client = Minecraft.getInstance();
             if (!isEnabled() || !visible.contains(Widget.HOTBAR) || client.player == null || client.player.isSpectator()) {
+                HudDrag.noHotbar();
                 vanilla.extractRenderState(graphics, delta);
                 return;
             }
+            HudDrag.updateFrame(client);
             hotbar(graphics, client);
         });
         HudElementRegistry.attachElementAfter(VanillaHudElements.HOTBAR, OrbitDLC.id("glass_hud"), (graphics, delta) -> {
             var client = Minecraft.getInstance();
+            HudDrag.updateFrame(client);
+            HudDrag.beginPanels();
             if (isEnabled() && client.player != null && !client.player.isSpectator()) {
                 entrance.animate(1f, 0f, 8f, Easing.CUBIC_OUT);
                 graphics.pose().pushMatrix();
@@ -127,6 +135,9 @@ public final class GuiHud extends Module {
         int barWidth = slot * 9 + 8;
         int x = (graphics.guiWidth() - barWidth) / 2;
         int y = graphics.guiHeight() - slot - 8;
+        var bar = HudDrag.position(HudDrag.Widget.HOTBAR, graphics, x, y, barWidth, slot + 6);
+        x = bar.x();
+        y = bar.y();
         panel(graphics, x, y, barWidth, slot + 6);
         var inventory = client.player.getInventory();
         int selected = inventory.getSelectedSlot();
@@ -136,11 +147,11 @@ public final class GuiHud extends Module {
         }
         slotSlide.animate(selected, 0f, 13f, Easing.CUBIC_OUT);
         for (int i = 0; i < 9; i++) {
-            shape(graphics, x + 4 + slot * i, y + 3, slot - 2, slot, 7, 0x455B7194);
+            shape(graphics, x + 4 + slot * i, y + 3, slot - 2, slot, 7, 0x456C5665);
         }
         int highlight = x + 4 + Math.round(slot * Math.clamp(slotSlide.value(), 0f, 8f));
-        shape(graphics, highlight, y + 3, slot - 2, slot, 7, 0xA194AFFF);
-        shape(graphics, highlight + 4, y + 4, slot - 10, 1, 1, 0xC9E4EBFF);
+        shape(graphics, highlight, y + 3, slot - 2, slot, 7, 0xA1D6ACC6);
+        shape(graphics, highlight + 4, y + 4, slot - 10, 1, 1, 0xC9F7DFEE);
         for (int i = 0; i < 9; i++) {
             int cell = x + 4 + slot * i;
             var stack = inventory.getItem(i);
@@ -167,15 +178,16 @@ public final class GuiHud extends Module {
             for (String field : fields) total += client.font.width(text(field)) + 12;
             int barWidth = Math.min(width - 16, total);
             if (barWidth > 12) {
-                panel(graphics, 8, 8, barWidth, 19);
-                graphics.enableScissor(8, 8, 8 + barWidth - 4, 27);
-                draw(graphics, client, "O", 15, 13, ACCENT);
-                int x = 28;
+                var bar = HudDrag.position(HudDrag.Widget.STATUS, graphics, 8, 8, barWidth, 19);
+                panel(graphics, bar.x(), bar.y(), barWidth, 19);
+                graphics.enableScissor(bar.x(), bar.y(), bar.x() + barWidth - 4, bar.y() + 19);
+                graphics.blit(OrbitDLC.id("black_hole.png"), bar.x() + 4, bar.y() + 2, bar.x() + 19, bar.y() + 17, 0f, 1f, 0f, 1f);
+                int x = bar.x() + 20;
                 for (String field : fields) {
-                    draw(graphics, client, field, x, 13, TEXT);
+                    draw(graphics, client, field, x, bar.y() + 5, TEXT);
                     x += client.font.width(text(field)) + 4;
                     if (!field.equals(fields.getLast())) {
-                        draw(graphics, client, "·", x, 13, ACCENT);
+                        draw(graphics, client, "·", x, bar.y() + 5, ACCENT);
                     }
                     x += 8;
                 }
@@ -184,11 +196,12 @@ public final class GuiHud extends Module {
         }
 
         int y = 36;
-        if (visible.contains(Widget.BINDS)) {
+        if (visible.contains(Widget.BINDS) && (shortcut.isDown() || client.gui.screen() instanceof ClickGui)) {
             String key = shortcut.getTranslatedKeyMessage().getString();
             int cardWidth = Math.max(110, client.font.width(text(key)) + client.font.width(text("ClickGUI")) + 25);
-            card(graphics, client, 12, y, cardWidth, 1, "Keybinds");
-            row(graphics, client, 12, y + 20, cardWidth, "ClickGUI", key);
+            var box = HudDrag.position(HudDrag.Widget.KEYS, graphics, 12, y, cardWidth, 34);
+            card(graphics, client, box.x(), box.y(), cardWidth, 1, "Keybinds");
+            row(graphics, client, box.x(), box.y() + 20, cardWidth, "ClickGUI", key);
             y += 42;
         }
 
@@ -201,8 +214,10 @@ public final class GuiHud extends Module {
                 if (cardWidth >= 60) {
                     effectsEntrance.animate(1f, 0f, 8f, Easing.CUBIC_OUT);
                     int cardX = 12 - Math.round(10f * (1f - effectsEntrance.value()));
-                    card(graphics, client, cardX, y, cardWidth, effects.size(), "Effects");
-                    int rowY = y + 20;
+                    var box = HudDrag.position(HudDrag.Widget.EFFECTS, graphics, cardX, y, cardWidth, 22 + effects.size() * 12);
+                    cardX = box.x();
+                    card(graphics, client, cardX, box.y(), cardWidth, effects.size(), "Effects");
+                    int rowY = box.y() + 20;
                     for (var effect : effects) {
                         String name = effect.getEffect().value().getDisplayName().getString();
                         if (effect.getAmplifier() > 0) name += " " + (effect.getAmplifier() + 1);
@@ -236,7 +251,12 @@ public final class GuiHud extends Module {
             if (biome.isPresent()) info(graphics, client, infoY, biome.get().identifier().getPath().replace('_', ' '));
         }
 
-        if (visible.contains(Widget.TARGET) && client.hitResult instanceof EntityHitResult hit && hit.getEntity() instanceof LivingEntity target) {
+        LivingEntity target = client.hitResult instanceof EntityHitResult hit
+                && hit.getEntity() instanceof LivingEntity living ? living : null;
+        if (target == null && client.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen) {
+            target = client.player;
+        }
+        if (visible.contains(Widget.TARGET) && target != null) {
             if (target != previousTarget) {
                 targetEntrance.set(0f);
                 targetHealth.set(0f);
@@ -245,6 +265,9 @@ public final class GuiHud extends Module {
             targetEntrance.animate(1f, 0f, 8f, Easing.CUBIC_OUT);
             int x = width - 151 + Math.round(14f * (1f - targetEntrance.value()));
             int targetY = Math.max(38, height * 2 / 3);
+            var box = HudDrag.position(HudDrag.Widget.TARGET, graphics, x, targetY, 136, 37);
+            x = box.x();
+            targetY = box.y();
             panel(graphics, x, targetY, 136, 37);
             graphics.text(client.font, text(target.getDisplayName().getString()), x + 10, targetY + 7, 0xFFF5F8FF, false);
             shape(graphics, x + 10, targetY + 22, 116, 5, 2, 0x6D8298BA);
@@ -256,7 +279,7 @@ public final class GuiHud extends Module {
     }
 
     private static final int TEXT = 0xFFF4F5FA;
-    private static final int ACCENT = 0xFF93AAFF;
+    private static final int ACCENT = 0xFFF2CFE4;
 
     private static void card(GuiGraphicsExtractor graphics, Minecraft client,
                              int x, int y, int width, int rows, String title) {
@@ -292,8 +315,6 @@ public final class GuiHud extends Module {
         int radius = Math.min(11, h / 2);
         shape(graphics, x, y + 2, w, h, radius, 0x52090B13);
         GlassBackdrop.submit(graphics, x, y, w, h, radius);
-        shape(graphics, x, y, w, h, radius, 0x486F85B5);
-        shape(graphics, x + 1, y + 1, w - 2, h - 2, radius - 1, 0x95101523);
     }
 
     private static void shape(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int radius, int color) {

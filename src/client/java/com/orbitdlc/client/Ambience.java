@@ -1,9 +1,7 @@
 package com.orbitdlc.client;
 
-import com.orbitdlc.OrbitDLC;
 import com.orbitdlc.client.module.Category;
 import com.orbitdlc.client.module.Module;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -25,7 +23,7 @@ public final class Ambience extends Module {
     private Ambience() { super("ambience", Category.VISUALS); }
 
     @Override
-    public String description() { return "Client-side time, weather and wet-world color grading. Right-click to configure."; }
+    public String description() { return "Client-side time, weather and wet-world reflections. Right-click to configure."; }
 
     public static Long clock() { return INSTANCE.isEnabled() ? INSTANCE.time.tick : null; }
 
@@ -38,41 +36,46 @@ public final class Ambience extends Module {
         };
     }
 
-    void registerHud() {
-        HudElementRegistry.addFirst(OrbitDLC.id("wet_world"), (graphics, delta) -> {
-            if (isEnabled() && wet) {
-                GlassBackdrop.wetWorld(graphics);
-                graphics.nextStratum();
-            }
-        });
+    static boolean wetWorldEnabled() {
+        return INSTANCE.isEnabled() && INSTANCE.wet;
     }
 
-    Screen settings(Screen parent) {
-        return new Screen(Component.literal("Ambience")) {
+    @Override
+    public com.google.gson.JsonObject saveSettings() {
+        var settings = super.saveSettings();
+        settings.addProperty("time", time.name());
+        settings.addProperty("weather", weather.name());
+        settings.addProperty("wet", wet);
+        return settings;
+    }
+
+    @Override
+    public void loadSettings(com.google.gson.JsonObject settings) {
+        time = Time.valueOf(settings.get("time").getAsString());
+        weather = Weather.valueOf(settings.get("weather").getAsString());
+        wet = settings.get("wet").getAsBoolean();
+    }
+
+    ModuleSettings settings(Screen parent) {
+        return new ModuleSettings("Ambience", parent) {
             @Override
             protected void init() {
-                int x = (width - 172) / 2;
-                int y = height / 2 - 54;
-                addRenderableWidget(new OrbitButton(label("Time", time), x, y, 172, 22, button -> {
+                int x = contentX();
+                int y = contentY();
+                settingWidget(new OrbitButton(label("Time", time), x, y, contentWidth(), 22, button -> {
                     time = Time.values()[(time.ordinal() + 1) % Time.values().length];
                     button.setMessage(label("Time", time));
                 }));
-                addRenderableWidget(new OrbitButton(label("Wet world", wet ? "ON" : "OFF"), x, y + 27, 172, 22, button -> {
+                settingWidget(new OrbitButton(label("Wet world", wet ? "ON" : "OFF"), x, y + 27, contentWidth(), 22, button -> {
                     wet = !wet;
                     button.setMessage(label("Wet world", wet ? "ON" : "OFF"));
                 }));
-                addRenderableWidget(new OrbitButton(label("Weather", weather), x, y + 54, 172, 22, button -> {
+                settingWidget(new OrbitButton(label("Weather", weather), x, y + 54, contentWidth(), 22, button -> {
                     weather = Weather.values()[(weather.ordinal() + 1) % Weather.values().length];
                     button.setMessage(label("Weather", weather));
                 }));
-                addRenderableWidget(new OrbitButton(Component.literal("Back"), x, y + 81, 172, 22, button -> onClose()));
             }
 
-            @Override
-            public void onClose() { minecraft.gui.setScreen(parent); }
-
-            @Override
-            public boolean isPauseScreen() { return false; }
         };
     }
 

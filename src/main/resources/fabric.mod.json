@@ -13,7 +13,7 @@
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/orbitdlc/icon.png",
+	"icon": "assets/orbitdlc/black_hole.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [

@@ -39,6 +39,9 @@ public abstract class Module {
         this.enabled = enabled;
     }
 
+    public com.google.gson.JsonObject saveSettings() { return new com.google.gson.JsonObject(); }
+    public void loadSettings(com.google.gson.JsonObject settings) {}
+
     public abstract String description();
 
     protected void onEnable() {}

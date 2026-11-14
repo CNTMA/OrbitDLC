@@ -1,0 +1,6 @@
+{
+  "gui.open": { "sounds": ["orbitdlc:gui/guiopen"] },
+  "gui.close": { "sounds": ["orbitdlc:gui/guiclose"] },
+  "gui.enable": { "sounds": ["orbitdlc:gui/funcon"] },
+  "gui.disable": { "sounds": ["orbitdlc:gui/funcoff"] }
+}

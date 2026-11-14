@@ -13,7 +13,8 @@ import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.network.chat.Component;
 
 public final class MainMenu extends Screen {
-    private static final float BACKGROUND_ASPECT = 1654f / 951f;
+    static final net.minecraft.resources.Identifier BACKGROUND = OrbitDLC.id("textures/menu/singleplayer.png");
+    private static final float BACKGROUND_ASPECT = 736f / 412f;
     private final ModuleManager modules;
     private final KeyMapping shortcut;
     private final brokke.cc.util.animation.Animation entrance = new brokke.cc.util.animation.Animation();
@@ -54,7 +55,15 @@ public final class MainMenu extends Screen {
 
     private Button add(String label, int x, int y, int w, int height, Runnable action) {
         Component text = label.startsWith("menu.") ? Component.translatable(label) : Component.literal(label);
-        return addRenderableWidget(new OrbitButton(text, x, y, w, height, button -> action.run()));
+        return addRenderableWidget(new OrbitButton(text, x, y, w, height, button -> action.run()) {
+            @Override
+            protected void background(GuiGraphicsExtractor graphics, int color) {
+                GlassBackdrop.menu(graphics, getX(), getY(), getWidth(), getHeight());
+                brokke.cc.util.render.display.rounded.RoundedRectRenderState.submit(
+                        graphics, getX(), getY(), getWidth(), getHeight(), 18,
+                        active ? color & 0x32FFFFFF : 0x6620222D);
+            }
+        });
     }
 
     @Override
@@ -62,7 +71,7 @@ public final class MainMenu extends Screen {
         float aspect = (float) width / height;
         float visibleWidth = Math.min(1f, aspect / BACKGROUND_ASPECT);
         float visibleHeight = Math.min(1f, BACKGROUND_ASPECT / aspect);
-        graphics.blit(OrbitDLC.id("textures/menu/source2_background.png"), 0, 0, width, height,
+        graphics.blit(BACKGROUND, 0, 0, width, height,
                 (1f - visibleWidth) / 2f, (1f + visibleWidth) / 2f,
                 (1f - visibleHeight) / 2f, (1f + visibleHeight) / 2f);
     }
@@ -81,9 +90,10 @@ public final class MainMenu extends Screen {
 
     private void renderPanel(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         graphics.pose().pushMatrix();
+        graphics.blit(OrbitDLC.id("black_hole.png"), left, top - 50, left + 47, top - 3, 0f, 1f, 0f, 1f);
         graphics.pose().translate(left, top);
         graphics.pose().scale(1.8f);
-        graphics.text(font, Component.literal("Welcome to OrbitDLC").setStyle(OrbitButton.TYPE), 0, 0, 0xFFF9FAFF, false);
+        graphics.text(font, Component.literal("Welcome to OrbitDLC").setStyle(OrbitButton.HEADING), 0, 0, 0xFFF9FAFF, false);
         graphics.pose().popMatrix();
         var user = Component.literal(minecraft.getUser().getName()).setStyle(OrbitButton.TYPE);
         int chipWidth = Math.max(62, font.width(user) + 24);

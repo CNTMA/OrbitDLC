@@ -9,9 +9,9 @@ import com.orbitdlc.client.module.PlannedModule;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -26,8 +26,17 @@ public final class ClickGui extends Screen {
     private final Screen parent;
     private final KeyMapping shortcut;
     private final List<Button> cards = new ArrayList<>();
-    private Category category = Category.COMBAT;
+    private final Category category = Category.VISUALS;
+    private final java.util.EnumMap<OrbitLibrary.Tab, OrbitLibrary> libraries =
+            new java.util.EnumMap<>(OrbitLibrary.Tab.class);
+    private OrbitLibrary.Tab tab = OrbitLibrary.Tab.VISUALS;
+    private final Animation tabReveal = new Animation();
+    private final Animation tabMarker = new Animation();
     private EditBox search;
+    private ModuleSettings sidebar;
+    private final Animation settingsReveal = new Animation();
+    private final List<Button> settingControls = new ArrayList<>();
+    private int settingsWidth;
     private final Animation searchFocus = new Animation();
     private int page;
     private int pageCount;
@@ -49,25 +58,17 @@ public final class ClickGui extends Screen {
         cards.clear();
         panelWidth = Math.min(ClickGuiLayout.WIDTH, width - 16);
         panelHeight = Math.min(ClickGuiLayout.HEIGHT, height - 16);
-        left = (width - panelWidth) / 2;
+        settingsWidth = sidebar == null ? 0 : Math.min(200, Math.max(120, width / 3));
+        panelWidth = Math.min(panelWidth, width - 16 - (sidebar == null ? 0 : settingsWidth + 8));
+        left = (width - panelWidth - (sidebar == null ? 0 : settingsWidth + 8)) / 2;
         top = (height - panelHeight) / 2;
-        Category[] order = {Category.COMBAT, Category.MOVEMENT, Category.VISUALS, Category.PLAYER, Category.MISC};
-        for (int index = 0; index < order.length; index++) {
-            Category item = order[index];
-            String text = item == Category.VISUALS ? "Render" : item.label();
-            var entry = new SidebarEntry(text, index, button -> {
-                category = item;
-                page = 0;
-                updateCards();
-            });
-            addRenderableWidget(entry);
+        for (OrbitLibrary.Tab entry : OrbitLibrary.Tab.values()) {
+            addRenderableWidget(new SidebarEntry(entry));
         }
-        String[] extra = {"Configs", "Cosmetics", "Scripts", "Globals", "Events", "AutoBuy", "Bots", "Customs"};
-        for (int index = 0; index < extra.length; index++) {
-            var entry = new SidebarEntry(extra[index], index + order.length, button -> {});
-            entry.active = false;
-            entry.setTooltip(Tooltip.create(Component.literal("Brokke page pending integration")));
-            addRenderableWidget(entry);
+        settingControls.clear();
+        if (tab != OrbitLibrary.Tab.VISUALS) {
+            libraries.get(tab).layout(font, left + 98, top, panelWidth - 110, panelHeight);
+            return;
         }
         search = new EditBox(font, left + 105, top + 17, panelWidth - 124, 14, Component.literal("Search modules"));
         search.setBordered(false);
@@ -78,28 +79,57 @@ public final class ClickGui extends Screen {
             page = 0;
             updateCards();
         });
-        addRenderableWidget(search);
+        addTabControl(search);
+        if (sidebar != null) {
+            sidebar.embed(left + panelWidth + 8, top, settingsWidth, this::addSettingControl);
+            addSettingControl(new OrbitButton(Component.literal("×"), left + panelWidth + settingsWidth - 12,
+                    top + 7, 14, 14, button -> closeSettings()));
+        }
         updateCards();
     }
 
+    private void selectTab(OrbitLibrary.Tab next) {
+        if (next == tab) return;
+        tab = next;
+        sidebar = null;
+        if (next != OrbitLibrary.Tab.VISUALS) {
+            libraries.computeIfAbsent(next, selected -> new OrbitLibrary(this, modules, selected));
+        }
+        tabReveal.set(0f);
+        refreshTab();
+    }
+
+    void refreshTab() {
+        rebuildWidgets();
+    }
+
+    <T extends AbstractWidget> T addTabControl(T widget) {
+        return addWidget(widget);
+    }
+
+    private void addSettingControl(Button button) {
+        settingControls.add(addWidget(button));
+    }
     private final class SidebarEntry extends Button {
+        @Override
+        public void playDownSound(net.minecraft.client.sounds.SoundManager sounds) {}
+
         private final Animation highlight = new Animation();
-        private final Animation selection = new Animation();
-        private SidebarEntry(String text, int index, OnPress onPress) {
-            super(left + 5, top + 24 + index * 14 + (index >= 5 ? 7 : 0), 70, 13,
-                    Component.literal(text), onPress, DEFAULT_NARRATION);
+        private final OrbitLibrary.Tab entry;
+
+        private SidebarEntry(OrbitLibrary.Tab entry) {
+            super(left + 5, top + 27 + entry.ordinal() * 17, 77, 15,
+                    Component.literal(entry.label), button -> selectTab(entry), DEFAULT_NARRATION);
+            this.entry = entry;
         }
 
         @Override
         protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-            String current = category == Category.VISUALS ? "Render" : category.label();
-            boolean selected = active && getMessage().getString().equals(current);
-            selection.animate(selected ? 1f : 0f, delta, 10f);
+            boolean selected = entry == tab;
             highlight.animate(selected || isHoveredOrFocused() ? 1f : 0f, delta, 11f);
-            if (selection.value() > 0.01f) {
-                rounded(graphics, getX() - 3, getY() + 3, 2, 7, 1, OrbitButton.blend(0x00288CFF, 0xFF288CFF, selection.value()));
-            }
-            int color = OrbitButton.blend(0xFFADB4C2, 0xFFF0F2F8, highlight.value());
+            rounded(graphics, getX(), getY(), getWidth(), getHeight(), 5,
+                    OrbitButton.blend(0, OrbitTheme.tint(0x48), highlight.value()));
+            int color = OrbitButton.blend(0xFFADB4C2, OrbitTheme.accent(), highlight.value());
             graphics.text(font, uiText(getMessage().getString()), getX() + 7, getY() + 2, color, false);
         }
     }
@@ -109,7 +139,8 @@ public final class ClickGui extends Screen {
         cards.clear();
         String query = search.getValue().strip().toLowerCase(Locale.ROOT);
         var matches = modules.modules(category).stream()
-                .filter(module -> name(module).contains(query)
+                .filter(module -> module.id().replace('_', ' ').contains(query)
+                        || name(module).toLowerCase(Locale.ROOT).contains(query)
                         || module.description().toLowerCase(Locale.ROOT).contains(query))
                 .sorted(java.util.Comparator.comparing(module -> module instanceof PlannedModule))
                 .toList();
@@ -125,9 +156,8 @@ public final class ClickGui extends Screen {
             int cell = i - start;
             Button card = new ModuleCard(module, left + 98 + cell % columns * (cardWidth + 6),
                     top + 38 + cell / columns * 29, cardWidth);
-            card.setTooltip(Tooltip.create(Component.literal(module.description())));
             card.active = !(module instanceof PlannedModule);
-            cards.add(addRenderableWidget(card));
+            cards.add(addTabControl(card));
         }
         if (pageCount > 1) {
             addPageButton("<", -1, left + panelWidth - 81);
@@ -136,6 +166,9 @@ public final class ClickGui extends Screen {
     }
 
     private final class ModuleCard extends Button {
+        @Override
+        public void playDownSound(net.minecraft.client.sounds.SoundManager sounds) {}
+
         private final Module module;
         private final Animation toggle = new Animation();
         private final Animation hover = new Animation();
@@ -144,6 +177,7 @@ public final class ClickGui extends Screen {
         private ModuleCard(Module module, int x, int y, int width) {
             super(x, y, width, 24, label(module), button -> {
                 module.setEnabled(!module.isEnabled());
+                GuiAudio.toggle(module.isEnabled());
                 button.setMessage(label(module));
             }, DEFAULT_NARRATION);
             this.module = module;
@@ -153,14 +187,21 @@ public final class ClickGui extends Screen {
         @Override
         public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
             if (event.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT && isMouseOver(event.x(), event.y())) {
-                Screen settings = switch (module) {
+                ModuleSettings settings = switch (module) {
                     case ShaderSky sky -> sky.settings(ClickGui.this);
+                    case ShaderHand hand -> hand.settings(ClickGui.this);
+                    case Beautiful beautiful -> beautiful.settings(ClickGui.this);
                     case Ambience ambience -> ambience.settings(ClickGui.this);
                     case GuiHud hud -> hud.settings(ClickGui.this);
+                    case JumpCircles circles -> circles.settings(ClickGui.this);
+                    case WorldParticles particles -> particles.settings(ClickGui.this);
+                    case TargetEsp target -> target.settings(ClickGui.this);
                     default -> null;
                 };
                 if (settings == null) return false;
-                minecraft.gui.setScreen(settings);
+                sidebar = settings;
+                settingsReveal.set(0f);
+                rebuildWidgets();
                 return true;
             }
             return super.mouseClicked(event, doubleClick);
@@ -173,7 +214,8 @@ public final class ClickGui extends Screen {
             hover.animate(active && isHoveredOrFocused() ? 1f : 0f, delta, 11f);
             reveal.animate(1f, delta, 14f, Easing.CUBIC_OUT);
             float visibility = Math.max(0.1f, reveal.value());
-            int surface = OrbitButton.blend(0xE91A1D25, 0xED323649, hover.value());
+            GlassBackdrop.submit(graphics, x, y, w, 24, 7);
+            int surface = OrbitButton.blend(0x38201A20, OrbitTheme.tint(0x62), hover.value());
             rounded(graphics, x, y, w, 24, 5, OrbitButton.blend(surface & 0xFFFFFF, surface, visibility));
             int solid = active ? 0xFFF0F2F8 : 0xFFA9B0BE;
             int textColor = OrbitButton.blend(solid & 0xFFFFFF, solid, visibility);
@@ -185,7 +227,7 @@ public final class ClickGui extends Screen {
             }
             toggle.animate(module.isEnabled() ? 1f : 0f, delta, 8f);
             float progress = Math.clamp(toggle.value(), 0f, 1f);
-            int track = OrbitButton.blend(0xFF2D3039, 0xFF288CFF, progress);
+            int track = OrbitButton.blend(0xFF443A44, OrbitTheme.accent(), progress);
             int switchX = x + w - 27;
             rounded(graphics, switchX, y + 8, 20, 9, 5, track);
             rounded(graphics, switchX + 1 + Math.round(11f * progress), y + 9, 7, 7, 4, 0xFFF5F6FA);
@@ -202,7 +244,7 @@ public final class ClickGui extends Screen {
             updateCards();
         });
         button.active = page + direction >= 0 && page + direction < pageCount;
-        cards.add(addRenderableWidget(button));
+        cards.add(addTabControl(button));
     }
 
     private static Component uiText(String text) {
@@ -210,7 +252,20 @@ public final class ClickGui extends Screen {
     }
 
     private static String name(Module module) {
-        return module.id().replace('_', ' ');
+        return switch (module.id()) {
+            case "shadersky" -> "ShaderSky";
+            case "fullbright" -> "FullBright";
+            default -> {
+                var name = new StringBuilder();
+                for (String word : module.id().split("_+")) {
+                    name.append(switch (word) {
+                        case "esp", "gui", "hud", "fps", "rpc", "fov" -> word.toUpperCase(Locale.ROOT);
+                        default -> Character.toUpperCase(word.charAt(0)) + word.substring(1);
+                    });
+                }
+                yield name.toString();
+            }
+        };
     }
 
     private static Component label(Module module) {
@@ -239,12 +294,45 @@ public final class ClickGui extends Screen {
 
     private void renderPanel(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         GlassBackdrop.submit(graphics, left, top, panelWidth, panelHeight);
+        graphics.text(font, title.copy().setStyle(OrbitButton.HEADING), left + 12, top + 10, OrbitTheme.accent());
+        int divider = left + 11 + ClickGuiLayout.SIDEBAR_WIDTH;
+        graphics.fill(divider, top + 24, divider + 1, top + panelHeight - 12, 0x50D9CDEF);
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
+        tabMarker.animate(tab.ordinal(), delta, 9f, Easing.CUBIC_OUT);
+        rounded(graphics, left + 3, top + 31 + Math.round(tabMarker.value() * 17), 2, 7, 1, OrbitTheme.accent());
+        tabReveal.animate(1f, delta, 8f, Easing.CUBIC_OUT);
+        int reveal = tabRevealHeight();
+        if (reveal > 0) {
+            graphics.enableScissor(left + 97, top, left + panelWidth - 6, top + reveal);
+            try {
+                if (tab == OrbitLibrary.Tab.VISUALS) renderVisuals(graphics, mouseX, mouseY, delta);
+                else libraries.get(tab).render(graphics, mouseX, mouseY, delta);
+            } finally {
+                graphics.disableScissor();
+            }
+        }
+        renderSettings(graphics, mouseX, mouseY, delta);
+    }
+
+    private int tabRevealHeight() {
+        return Math.round((panelHeight - 8) * Math.clamp(tabReveal.value(), 0f, 1f));
+    }
+
+    @Override
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        if (event.x() >= left + 97 && event.x() < left + panelWidth
+                && event.y() >= top + tabRevealHeight() && event.y() < top + panelHeight) {
+            return false;
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
+
+    private void renderVisuals(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        GlassBackdrop.submit(graphics, left + 98, top + 11, panelWidth - 110, 20, 7);
         searchFocus.animate(search.isFocused() ? 1f : 0f, delta, 10f);
         rounded(graphics, left + 97, top + 10, panelWidth - 108, 22, 7,
-                OrbitButton.blend(0x004F6090, 0xBD687CBE, searchFocus.value()));
-        rounded(graphics, left + 98, top + 11, panelWidth - 110, 20, 6, 0xEA1C1E2B);
-        graphics.text(font, uiText(title.getString()), left + 12, top + 10, 0xFFE1CFFF);
-        graphics.fill(left + 11 + ClickGuiLayout.SIDEBAR_WIDTH, top + 37, left + 12 + ClickGuiLayout.SIDEBAR_WIDTH, top + panelHeight - 12, 0x50D9CDEF);
+                OrbitButton.blend(0x00705A6A, 0xBDE8C7DF, searchFocus.value()));
+        rounded(graphics, left + 98, top + 11, panelWidth - 110, 20, 6, 0x30261C25);
         if (cards.isEmpty()) {
             graphics.text(font, uiText("No matching modules"), left + 100, top + 45, 0xFFB9B1C6);
         }
@@ -252,7 +340,27 @@ public final class ClickGui extends Screen {
             graphics.centeredText(font, uiText(Integer.toString(page + 1)), left + panelWidth - 46,
                     top + panelHeight - 23, 0xFFE1CFFF);
         }
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
+        search.extractRenderState(graphics, mouseX, mouseY, delta);
+        cards.forEach(card -> card.extractRenderState(graphics, mouseX, mouseY, delta));
+    }
+
+    private void renderSettings(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        if (sidebar != null) {
+            settingsReveal.animate(1f, delta, 7f, Easing.CUBIC_OUT);
+            int x = left + panelWidth + 8;
+            int visibleWidth = Math.max(1, Math.round(settingsWidth * settingsReveal.value()));
+            graphics.enableScissor(x, top, x + visibleWidth, top + panelHeight);
+            try {
+                sidebar.drawSidebar(graphics, panelHeight, visibleWidth);
+                for (Button button : settingControls) {
+                    if (button.getX() + button.getWidth() <= x + visibleWidth) {
+                        button.extractRenderState(graphics, mouseX, mouseY, delta);
+                    }
+                }
+            } finally {
+                graphics.disableScissor();
+            }
+        }
     }
 
     @Override
@@ -266,7 +374,18 @@ public final class ClickGui extends Screen {
 
     @Override
     public void onClose() {
+        if (closing) return;
+        if (sidebar != null) {
+            closeSettings();
+            return;
+        }
         closing = true;
+        GuiAudio.close();
+    }
+
+    private void closeSettings() {
+        sidebar = null;
+        rebuildWidgets();
     }
 
     @Override

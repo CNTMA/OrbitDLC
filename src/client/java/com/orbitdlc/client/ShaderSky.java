@@ -28,6 +28,7 @@ public final class ShaderSky extends Module {
 
     private Preset preset = Preset.SUNSET;
     private float speed = 1f;
+    private VisualColor color = VisualColor.ORIGINAL;
     private final long start = System.nanoTime();
     private final Matrix4f inverse = new Matrix4f();
     private GpuBuffer uniforms;
@@ -89,7 +90,14 @@ public final class ShaderSky extends Module {
             buffer.position(64);
             buffer.putFloat(seconds).putFloat(0).putFloat(1).putFloat(1);
             buffer.putFloat(1).putFloat(sky.rainBrightness).putFloat(1).putFloat(0);
-            buffer.putFloat(0.67f).putFloat(0.52f).putFloat(1).putFloat(1).flip();
+            if (color == VisualColor.ORIGINAL) {
+                buffer.putFloat(0.67f).putFloat(0.52f).putFloat(1f).putFloat(0f);
+            } else {
+                int tint = color.rgb;
+                buffer.putFloat((tint >> 16 & 255) / 255f).putFloat((tint >> 8 & 255) / 255f)
+                        .putFloat((tint & 255) / 255f).putFloat(1f);
+            }
+            buffer.flip();
             var encoder = RenderSystem.getDevice().createCommandEncoder();
             encoder.writeToBuffer(uniforms.slice(), buffer);
             try (var pass = encoder.createRenderPass(() -> "OrbitDLC ShaderSky", target, Optional.empty())) {
@@ -105,33 +113,41 @@ public final class ShaderSky extends Module {
         }
     }
 
-    Screen settings(Screen parent) {
-        return new Screen(Component.literal("ShaderSky")) {
+    @Override
+    public com.google.gson.JsonObject saveSettings() {
+        var settings = super.saveSettings();
+        settings.addProperty("preset", preset.name());
+        settings.addProperty("speed", speed);
+        settings.addProperty("color", color.name());
+        return settings;
+    }
+
+    @Override
+    public void loadSettings(com.google.gson.JsonObject settings) {
+        preset = Preset.valueOf(settings.get("preset").getAsString());
+        float value = settings.get("speed").getAsFloat();
+        if (!Float.isFinite(value)) throw new IllegalArgumentException("Invalid sky speed");
+        speed = Math.clamp(value, 0.5f, 2f);
+        color = VisualColor.load(settings);
+    }
+
+    ModuleSettings settings(Screen parent) {
+        return new ModuleSettings("ShaderSky", parent) {
             @Override
             protected void init() {
-                int x = (width - 146) / 2;
-                int y = height / 2 - 40;
-                addRenderableWidget(new OrbitButton(Component.literal("Preset: " + preset), x, y, 146, 23, button -> {
-                    var values = Preset.values();
-                    preset = values[(preset.ordinal() + 1) % values.length];
-                    button.setMessage(Component.literal("Preset: " + preset));
-                }));
-                addRenderableWidget(new OrbitButton(Component.literal("Speed: " + speed + "x"), x, y + 27, 146, 23, button -> {
-                    speed = speed >= 2f ? 0.5f : speed + 0.5f;
-                    button.setMessage(Component.literal("Speed: " + speed + "x"));
-                }));
-                addRenderableWidget(new OrbitButton(Component.literal("Back"), x, y + 54, 146, 23, button -> onClose()));
+                chip("Color · " + color.label, 0, button -> {
+                    color = color.next();
+                    button.setMessage(Component.literal("Color · " + color.label));
+                });
+                var presets = Preset.values();
+                int speedRow = choicesAt(java.util.Arrays.stream(presets)
+                                .map(value -> value.name().charAt(0) + value.name().substring(1).toLowerCase(Locale.ROOT))
+                                .toList(),
+                        index -> preset == presets[index], index -> preset = presets[index], 25);
+                choicesAt(java.util.List.of("0.5×", "1×", "1.5×", "2×"),
+                        index -> speed == (index + 1) * 0.5f, index -> speed = (index + 1) * 0.5f, speedRow + 5);
             }
 
-            @Override
-            public void onClose() {
-                minecraft.gui.setScreen(parent);
-            }
-
-            @Override
-            public boolean isPauseScreen() {
-                return false;
-            }
         };
     }
 }

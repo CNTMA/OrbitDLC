@@ -25,6 +25,8 @@ void finishSky(vec3 color) {
     color = max(color, vec3(0.0));
     color = color / (1.0 + color * 0.45);
     OutColor = vec4(color * uParams.w, 1.0);
+    float luma = dot(OutColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+    OutColor.rgb = mix(OutColor.rgb, luma * uThemeColor.rgb, 0.65 * uThemeColor.a);
 }
 void main() {
     vec3 d = normalize(vWorldDir);
