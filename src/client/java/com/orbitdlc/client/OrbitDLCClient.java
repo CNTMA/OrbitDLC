@@ -23,8 +23,6 @@ public final class OrbitDLCClient implements ClientModInitializer {
         modules.register(Ambience.INSTANCE);
         ShaderSky.init();
         modules.register(ShaderSky.INSTANCE);
-        modules.register(SkyPng.INSTANCE);
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> SkyPng.INSTANCE.close());
         modules.register(ShaderHand.INSTANCE);
         modules.register(ShaderCrystal.INSTANCE);
         modules.register(ChinaHat.INSTANCE);
