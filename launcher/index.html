@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file:; style-src 'self'; font-src 'self' file:">
+  <title>OrbitVisuals</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="renderer.js" defer></script>
+</head>
+<body>
+  <header class="titlebar">
+    <div class="window-controls" role="group" aria-label="Управление окном">
+      <button type="button" class="traffic close" data-window="close" aria-label="Закрыть" title="Закрыть">×</button>
+      <button type="button" class="traffic minimize" data-window="minimize" aria-label="Свернуть" title="Свернуть">−</button>
+      <button type="button" class="traffic maximize" data-window="maximize" aria-label="Развернуть или восстановить" title="Развернуть или восстановить">+</button>
+    </div>
+    <span>OrbitVisuals</span>
+  </header>
+  <main>
+    <section class="glass" aria-label="Запуск игры">
+      <img class="logo" src="../src/main/resources/assets/orbitdlc/black_hole.png" alt="">
+      <h1>OrbitVisuals</h1>
+      <p class="version">Minecraft 26.3 <span>·</span> Fabric</p>
+      <label class="profile-label" for="username">Локальный ник</label>
+      <input id="username" class="profile-name" maxlength="16" value="OrbitPlayer" spellcheck="false" autocomplete="off">
+      <button class="play" type="button"><span aria-hidden="true">▶</span> Играть</button>
+      <p class="status" role="status"><i></i><span>Готов к запуску</span></p>
+      <div class="actions">
+        <button type="button" class="secondary" id="mods-button" aria-controls="mods-panel" aria-expanded="false">Моды</button>
+        <button type="button" class="secondary" id="game-folder">Папка игры</button>
+      </div>
+    </section>
+    <section class="glass mods-panel" id="mods-panel" aria-labelledby="mods-title" hidden>
+      <div class="mods-heading">
+        <h2 id="mods-title">Моды</h2>
+        <button type="button" class="secondary" id="refresh-mods">Обновить</button>
+      </div>
+      <p id="mods-status" role="status"></p>
+      <ul id="mods-list"></ul>
+      <button type="button" class="secondary" id="mods-folder">Открыть папку mods</button>
+    </section>
+  </main>
+</body>
+</html>

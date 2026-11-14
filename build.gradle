@@ -1,5 +1,5 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
+	id 'net.fabricmc.fabric-loom' version '1.18-SNAPSHOT'
 	id 'maven-publish'
 }
 
@@ -12,6 +12,14 @@ repositories {
 }
 
 loom {
+	accessWidenerPath = file('src/main/resources/orbitdlc.accesswidener')
+	splitEnvironmentSourceSets()
+	mods {
+		orbitdlc {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
 }
 
 dependencies {

@@ -6,14 +6,23 @@
 	"description": "OrbitDLC client mod.",
 	"authors": ["Biwer!", "Astrrrax!"],
 	"license": "CC0-1.0",
-	"icon": "assets/orbitdlc/icon.png",
+	"icon": "assets/orbitdlc/black_hole.png",
 	"environment": "*",
 	"entrypoints": {
-		"main": ["com.orbitdlc.OrbitDLC"],
-		"client": ["com.orbitdlc.OrbitDLCClient"]
+		"main": [
+			"com.orbitdlc.OrbitDLC"
+		],
+		"client": [
+			"com.orbitdlc.client.OrbitDLCClient"
+		]
 	},
+	"accessWidener": "orbitdlc.accesswidener",
 	"mixins": [
-		"orbitdlc.mixins.json"
+		"orbitdlc.mixins.json",
+		{
+			"config": "orbitdlc.client.mixins.json",
+			"environment": "client"
+		}
 	],
 	"depends": {
 		"fabricloader": ">=0.19.5",

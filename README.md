@@ -4,6 +4,6 @@ Development focuses on stability, responsiveness, and smooth operation without u
 
 OrbitDLC is an evolving project, with new ideas, improvements, and refinements planned throughout development. Its direction is shaped by continuous testing, feedback, and the ambition to create a client that stands on its own.
 
-Built for Minecraft 26.2 · Fabric
+Built for Minecraft 26.3 · Fabric
 
 Made with ❤️ by astrrrax, Biwer
