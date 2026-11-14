@@ -1,6 +1,7 @@
 #version 330
 #extension GL_ARB_separate_shader_objects : require
 layout(location = 0) in vec2 TexCoord;
+layout(location = 1) in vec2 PixelSize;
 layout(location = 0) out vec4 OutColor;
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
@@ -22,7 +23,7 @@ void main() {
     vec2 uv = TexCoord;
     vec4 source = texture(Sampler0, uv);
     float strength = Params.z;
-    vec2 pixel = Params.xy;
+    vec2 pixel = PixelSize;
     float luma = clamp(luminance(source.rgb), 0.0, 1.0);
     vec3 graded = mix(vec3(luma), source.rgb, 1.12);
     graded += vec3(-0.025, 0.008, 0.045) * (1.0 - luma) * luma;

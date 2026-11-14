@@ -31,6 +31,13 @@ abstract class ModuleSettings extends Screen {
     protected final int contentWidth() { return panelWidth - 24; }
 
     protected final void settingWidget(Button button) { host.accept(button); }
+
+    protected final void bind(String label, int row, net.minecraft.client.KeyMapping mapping) {
+        chip(label + " · " + mapping.getTranslatedKeyMessage().getString(), row, button -> {
+            ((ClickGui) parent).captureBind(mapping);
+            button.setMessage(Component.literal("Press key or mouse button"));
+        });
+    }
     protected final void chip(String text, int row, Button.OnPress action) {
         int x = contentX();
         int y = contentY() + row * 24;

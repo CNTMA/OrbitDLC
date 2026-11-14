@@ -2,7 +2,6 @@ package com.orbitdlc.client;
 
 import brokke.cc.util.animation.Animation;
 import brokke.cc.util.animation.Easing;
-import com.orbitdlc.client.module.Category;
 import com.orbitdlc.client.module.Module;
 import com.orbitdlc.client.module.ModuleManager;
 import com.orbitdlc.client.module.PlannedModule;
@@ -20,13 +19,13 @@ import java.util.List;
 import java.util.Locale;
 
 public final class ClickGui extends Screen {
+    private KeyMapping pendingBind;
     private final Animation openAnim = new Animation();
     private boolean closing;
     private final ModuleManager modules;
     private final Screen parent;
     private final KeyMapping shortcut;
     private final List<Button> cards = new ArrayList<>();
-    private final Category category = Category.VISUALS;
     private final java.util.EnumMap<OrbitLibrary.Tab, OrbitLibrary> libraries =
             new java.util.EnumMap<>(OrbitLibrary.Tab.class);
     private OrbitLibrary.Tab tab = OrbitLibrary.Tab.VISUALS;
@@ -58,7 +57,8 @@ public final class ClickGui extends Screen {
         cards.clear();
         panelWidth = Math.min(ClickGuiLayout.WIDTH, width - 16);
         panelHeight = Math.min(ClickGuiLayout.HEIGHT, height - 16);
-        settingsWidth = sidebar == null ? 0 : Math.min(200, Math.max(120, width / 3));
+        settingsWidth = sidebar == null ? 0 : Math.min(Math.max(0, width - 164),
+                Math.min(200, Math.max(120, width / 3)));
         panelWidth = Math.min(panelWidth, width - 16 - (sidebar == null ? 0 : settingsWidth + 8));
         left = (width - panelWidth - (sidebar == null ? 0 : settingsWidth + 8)) / 2;
         top = (height - panelHeight) / 2;
@@ -66,7 +66,7 @@ public final class ClickGui extends Screen {
             addRenderableWidget(new SidebarEntry(entry));
         }
         settingControls.clear();
-        if (tab != OrbitLibrary.Tab.VISUALS) {
+        if (tab.category() == null) {
             libraries.get(tab).layout(font, left + 98, top, panelWidth - 110, panelHeight);
             return;
         }
@@ -91,8 +91,9 @@ public final class ClickGui extends Screen {
     private void selectTab(OrbitLibrary.Tab next) {
         if (next == tab) return;
         tab = next;
+        page = 0;
         sidebar = null;
-        if (next != OrbitLibrary.Tab.VISUALS) {
+        if (next.category() == null) {
             libraries.computeIfAbsent(next, selected -> new OrbitLibrary(this, modules, selected));
         }
         tabReveal.set(0f);
@@ -138,7 +139,7 @@ public final class ClickGui extends Screen {
         cards.forEach(this::removeWidget);
         cards.clear();
         String query = search.getValue().strip().toLowerCase(Locale.ROOT);
-        var matches = modules.modules(category).stream()
+        var matches = modules.modules(tab.category()).stream()
                 .filter(module -> module.id().replace('_', ' ').contains(query)
                         || name(module).toLowerCase(Locale.ROOT).contains(query)
                         || module.description().toLowerCase(Locale.ROOT).contains(query))
@@ -190,13 +191,19 @@ public final class ClickGui extends Screen {
                 ModuleSettings settings = switch (module) {
                     case ShaderSky sky -> sky.settings(ClickGui.this);
                     case ShaderHand hand -> hand.settings(ClickGui.this);
+                    case MaceSwap swap -> swap.settings(ClickGui.this);
+                    case MaceHelper helper -> helper.settings(ClickGui.this);
+                    case UtilityModules.QuickUse use -> use.settings(ClickGui.this);
                     case Beautiful beautiful -> beautiful.settings(ClickGui.this);
                     case CustomFog fog -> fog.settings(ClickGui.this);
+                    case NoRender noRender -> noRender.settings(ClickGui.this);
+                    case Viewmodel viewmodel -> viewmodel.settings(ClickGui.this);
                     case Ambience ambience -> ambience.settings(ClickGui.this);
                     case GuiHud hud -> hud.settings(ClickGui.this);
                     case JumpCircles circles -> circles.settings(ClickGui.this);
                     case WorldParticles particles -> particles.settings(ClickGui.this);
                     case TargetEsp target -> target.settings(ClickGui.this);
+                    case Hitboxes hitboxes -> hitboxes.settings(ClickGui.this);
                     default -> null;
                 };
                 if (settings == null) return false;
@@ -303,11 +310,13 @@ public final class ClickGui extends Screen {
         rounded(graphics, left + 3, top + 31 + Math.round(tabMarker.value() * 17), 2, 7, 1, OrbitTheme.accent());
         tabReveal.animate(1f, delta, 8f, Easing.CUBIC_OUT);
         int reveal = tabRevealHeight();
-        if (reveal > 0) {
+        if (reveal > 0 && panelWidth > 103) {
             graphics.enableScissor(left + 97, top, left + panelWidth - 6, top + reveal);
             try {
-                if (tab == OrbitLibrary.Tab.VISUALS) renderVisuals(graphics, mouseX, mouseY, delta);
-                else libraries.get(tab).render(graphics, mouseX, mouseY, delta);
+                if (brokke.cc.util.render.display.rounded.RoundedRectRenderState.hasDrawableScissor(graphics)) {
+                    if (tab.category() != null) renderVisuals(graphics, mouseX, mouseY, delta);
+                    else libraries.get(tab).render(graphics, mouseX, mouseY, delta);
+                }
             } finally {
                 graphics.disableScissor();
             }
@@ -321,6 +330,10 @@ public final class ClickGui extends Screen {
 
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        if (pendingBind != null) {
+            assignBind(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button()));
+            return true;
+        }
         if (event.x() >= left + 97 && event.x() < left + panelWidth
                 && event.y() >= top + tabRevealHeight() && event.y() < top + panelHeight) {
             return false;
@@ -346,12 +359,14 @@ public final class ClickGui extends Screen {
     }
 
     private void renderSettings(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        if (sidebar != null) {
+        if (sidebar != null && settingsWidth > 0 && panelHeight > 0) {
             settingsReveal.animate(1f, delta, 7f, Easing.CUBIC_OUT);
             int x = left + panelWidth + 8;
-            int visibleWidth = Math.max(1, Math.round(settingsWidth * settingsReveal.value()));
+            int visibleWidth = Math.min(settingsWidth, Math.round(settingsWidth * settingsReveal.value()));
+            if (visibleWidth < 2) return;
             graphics.enableScissor(x, top, x + visibleWidth, top + panelHeight);
             try {
+                if (!brokke.cc.util.render.display.rounded.RoundedRectRenderState.hasDrawableScissor(graphics)) return;
                 sidebar.drawSidebar(graphics, panelHeight, visibleWidth);
                 for (Button button : settingControls) {
                     if (button.getX() + button.getWidth() <= x + visibleWidth) {
@@ -366,6 +381,17 @@ public final class ClickGui extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (pendingBind != null) {
+            var input = com.mojang.blaze3d.platform.InputConstants.getKey(event);
+            if (event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE || shortcut.matches(event)) {
+                pendingBind = null;
+                refreshTab();
+            } else {
+                assignBind(event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_BACKSPACE
+                        ? com.mojang.blaze3d.platform.InputConstants.UNKNOWN : input);
+            }
+            return true;
+        }
         if (shortcut.matches(event)) {
             onClose();
             return true;
@@ -385,8 +411,21 @@ public final class ClickGui extends Screen {
     }
 
     private void closeSettings() {
+        pendingBind = null;
         sidebar = null;
         rebuildWidgets();
+    }
+
+    void captureBind(KeyMapping mapping) {
+        pendingBind = mapping;
+    }
+
+    private void assignBind(com.mojang.blaze3d.platform.InputConstants.Key key) {
+        pendingBind.setKey(key);
+        KeyMapping.resetMapping();
+        minecraft.options.save();
+        pendingBind = null;
+        refreshTab();
     }
 
     @Override

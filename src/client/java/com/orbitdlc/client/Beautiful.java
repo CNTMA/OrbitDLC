@@ -24,7 +24,7 @@ public final class Beautiful extends Module {
     private static final int UNIFORM_BYTES = 80;
     private static final RenderPipeline PIPELINE = RenderPipelines.register(RenderPipeline.builder()
             .withLocation(OrbitDLC.id("pipeline/beautiful"))
-            .withVertexShader(OrbitDLC.id("core/wet_world"))
+            .withVertexShader(OrbitDLC.id("core/beautiful"))
             .withFragmentShader(OrbitDLC.id("core/beautiful"))
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .withColorTargetState(ColorTargetState.DEFAULT)

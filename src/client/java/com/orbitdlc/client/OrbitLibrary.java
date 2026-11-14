@@ -12,12 +12,23 @@ import java.io.IOException;
 import java.util.List;
 
 final class OrbitLibrary {
+    private static final int INPUT_TOP = 34;
+    private static final int INPUT_HEIGHT = 20;
+    private static final int INPUT_TEXT_HEIGHT = 9;
     enum Tab {
-        VISUALS("Visuals"), CONFIGS("Configs"), THEMES("Themes");
+        VISUALS("Visuals"), UTILITIES("Utilities"), FRIENDS("Friends"), CONFIGS("Configs"), THEMES("Themes");
 
         final String label;
 
         Tab(String label) { this.label = label; }
+
+        com.orbitdlc.client.module.Category category() {
+            return switch (this) {
+                case VISUALS -> com.orbitdlc.client.module.Category.VISUALS;
+                case UTILITIES -> com.orbitdlc.client.module.Category.UTILITIES;
+                default -> null;
+            };
+        }
     }
 
     private final ClickGui host;
@@ -35,12 +46,14 @@ final class OrbitLibrary {
         this.host = host;
         this.modules = modules;
         this.tab = tab;
-        if (tab == Tab.CONFIGS) refreshFiles();
+        if (hasList()) refreshFiles();
     }
+
+    private boolean hasList() { return tab == Tab.CONFIGS || tab == Tab.FRIENDS; }
 
     private void refreshFiles() {
         try {
-            files = OrbitProfiles.list(OrbitProfiles.PROFILES, ".json");
+            files = tab == Tab.FRIENDS ? OrbitFriends.names() : OrbitProfiles.list(OrbitProfiles.PROFILES, ".json");
         } catch (IOException error) {
             status = errorMessage(error);
         }
@@ -54,18 +67,30 @@ final class OrbitLibrary {
         panelHeight = height;
         controls.clear();
         switch (tab) {
-            case VISUALS -> throw new IllegalStateException();
-            case CONFIGS -> {
+            case VISUALS, UTILITIES -> throw new IllegalStateException();
+            case CONFIGS, FRIENDS -> {
+                boolean friends = tab == Tab.FRIENDS;
+                String hint = friends ? "Player name" : "Profile name";
                 String previousName = profileName == null ? "" : profileName.getValue();
-                profileName = new EditBox(font, left + 14, top + 35, panelWidth - 107, 18, Component.literal("Profile name"));
+                int textY = top + INPUT_TOP + (INPUT_HEIGHT - INPUT_TEXT_HEIGHT) / 2;
+                profileName = new EditBox(font, left + 14, textY, panelWidth - 107,
+                        top + INPUT_TOP + INPUT_HEIGHT - textY, Component.literal(hint));
                 profileName.setBordered(false);
                 profileName.addFormatter((value, offset) -> Component.literal(value).setStyle(OrbitButton.TYPE).getVisualOrderText());
-                profileName.setMaxLength(32);
+                profileName.setMaxLength(friends ? 16 : 32);
                 profileName.setValue(previousName);
-                profileName.setHint(Component.literal("Profile name").setStyle(OrbitButton.TYPE));
+                profileName.setHint(Component.literal(hint).setStyle(OrbitButton.TYPE));
                 addControl(profileName);
-                button("New save", panelWidth - 84, 34, 74,
-                        () -> perform(() -> OrbitProfiles.save(OrbitProfiles.profile(profileName.getValue()), modules, false), "Profile created", true));
+                button(friends ? "Add friend" : "New save", panelWidth - 84, 34, 74, () -> {
+                    if (friends) {
+                        perform(() -> {
+                            OrbitFriends.add(profileName.getValue().strip());
+                            profileName.setValue("");
+                        }, "Friend added", true);
+                    } else {
+                        perform(() -> OrbitProfiles.save(OrbitProfiles.profile(profileName.getValue()), modules, false), "Profile created", true);
+                    }
+                });
             }
             case THEMES -> {
                 int rowY = 34;
@@ -76,7 +101,7 @@ final class OrbitLibrary {
                 }
             }
         }
-        if (tab == Tab.CONFIGS) addFileRows();
+        if (hasList()) addFileRows();
     }
 
     private void addFileRows() {
@@ -87,6 +112,11 @@ final class OrbitLibrary {
         for (int i = page * capacity; i < Math.min((page + 1) * capacity, files.size()); i++) {
             String file = files.get(i);
             int y = 59 + (i % capacity) * 23;
+            if (tab == Tab.FRIENDS) {
+                button("Remove", panelWidth - 70, y, 60,
+                        () -> perform(() -> OrbitFriends.remove(file), "Friend removed", true));
+                continue;
+            }
             var path = OrbitProfiles.PROFILES.resolve(file);
             button("Load", panelWidth - 105, y, 44, () -> perform(() -> OrbitProfiles.load(path, modules), "Loaded " + file, false));
             button("Save", panelWidth - 57, y, 47, () -> perform(() -> OrbitProfiles.save(path, modules, true), "Saved " + file, false));
@@ -132,16 +162,17 @@ final class OrbitLibrary {
     private interface FileAction { void run() throws IOException; }
 
     void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        if (tab == Tab.CONFIGS) GlassBackdrop.submit(graphics, left + 10, top + 34, panelWidth - 99, 20, 6);
+        if (hasList()) GlassBackdrop.submit(graphics, left + 10, top + INPUT_TOP, panelWidth - 99, INPUT_HEIGHT, 6);
         draw(graphics, tab.label, 12, 12, OrbitTheme.accent(), panelWidth - 24);
-        if (tab == Tab.CONFIGS) {
+        if (hasList()) {
             int capacity = Math.max(0, (panelHeight - 108) / 23);
             for (int i = page * capacity; i < Math.min((page + 1) * capacity, files.size()); i++) {
                 draw(graphics, files.get(i), 12, 65 + (i % capacity) * 23, 0xFFF4F5FA,
-                        panelWidth - 123);
+                        panelWidth - (tab == Tab.FRIENDS ? 86 : 123));
             }
             if (files.isEmpty()) {
-                draw(graphics, "No saved profiles", 12, 65, 0xFFF4F5FA, panelWidth - 24);
+                draw(graphics, tab == Tab.FRIENDS ? "No friends added" : "No saved profiles",
+                        12, 65, 0xFFF4F5FA, panelWidth - 24);
             }
         }
         draw(graphics, status, 69, panelHeight - 19, OrbitTheme.accent(), panelWidth - 79);

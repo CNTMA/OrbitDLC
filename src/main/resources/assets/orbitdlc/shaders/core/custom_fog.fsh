@@ -8,6 +8,7 @@ layout(std140) uniform CustomFogSettings {
     mat4 InverseViewProjection;
     vec4 CameraAndDepth;
     vec4 TintAndDensity;
+    vec4 DriftPhase;
 };
 
 vec4 unproject(float depth) {
@@ -30,8 +31,9 @@ void main() {
         float along = start + (float(i) + 0.5) * stepSize;
         vec3 samplePosition = CameraAndDepth.xyz + ray * along;
         float layer = exp(-max(samplePosition.y - 63.0, 0.0) * 0.022);
-        float clouds = 0.82 + 0.18 * sin(samplePosition.x * 0.069 + sin(samplePosition.z * 0.045))
-                             * cos(samplePosition.z * 0.051 + samplePosition.y * 0.075);
+        float billow = sin(samplePosition.z * 0.045 + DriftPhase.y);
+        float clouds = 0.82 + 0.18 * sin(samplePosition.x * 0.069 - DriftPhase.x + billow)
+                             * cos(samplePosition.z * 0.051 + samplePosition.y * 0.075 + DriftPhase.z);
         opticalDepth += (0.16 + 0.84 * layer) * clouds * smoothstep(start, 24.0, along);
     }
     float fog = 1.0 - exp(-opticalDepth * stepSize * TintAndDensity.w * 0.017);

@@ -23,6 +23,9 @@ public final class ExtraVisuals {
     }
 
     static void register(ModuleManager modules) {
+        var hitboxes = new Hitboxes();
+        modules.register(hitboxes);
+        hitboxes.registerHud();
         var particles = WorldParticles.INSTANCE;
         modules.register(particles);
         ClientTickEvents.END_CLIENT_TICK.register(particles::tick);

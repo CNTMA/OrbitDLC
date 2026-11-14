@@ -30,12 +30,34 @@ float glassCoverage(vec2 p, vec2 b, vec4 r, float smoothness, float band) {
     return smoothstep(-band, band, -roundedBoxSDF(-p, b, r, smoothness));
 }
 
+vec3 forestScene(vec2 uv, float phase) {
+    float water = smoothstep(0.67, 0.79, uv.y)
+                * (1.0 - smoothstep(0.43 + uv.y * 0.25, 0.57 + uv.y * 0.25, uv.x));
+    float wave = sin(uv.y * 230.0 + uv.x * 16.0 - phase * 863.0);
+    float swell = sin(uv.y * 105.0 - uv.x * 24.0 + phase * 587.0);
+    vec2 ripple = vec2(wave * 0.0028 + swell * 0.002, swell * 0.0014) * water;
+    vec3 color = texture(Sampler0, clamp(uv + ripple, 0.0, 1.0)).rgb;
+    float sunMask = (1.0 - smoothstep(0.08, 0.52, uv.x)) * (1.0 - smoothstep(0.48, 0.83, uv.y));
+    float beam = uv.x - uv.y * 0.34;
+    float rays = 0.5 + 0.5 * sin(beam * 44.0 + sin(phase * 47.0) * 0.7);
+    color += vec3(0.15, 0.20, 0.19) * rays * rays * sunMask * 0.55;
+    float glint = pow(max(0.0, wave * swell), 5.0);
+    color += vec3(0.22, 0.32, 0.36) * glint * water * 0.42;
+    return clamp(color, 0.0, 1.0);
+}
+
 void main() {
     vec2 sourceSize = vec2(textureSize(Sampler0, 0));
     float sourceAspect = sourceSize.x / sourceSize.y;
     float screenAspect = abs(dFdy(screenUv.y) / max(abs(dFdx(screenUv.x)), 1e-8));
     vec2 crop = min(vec2(1.0), vec2(screenAspect / sourceAspect, sourceAspect / screenAspect));
-    vec2 TexCoord = (vec2(screenUv.x, 1.0 - screenUv.y) - 0.5) * crop + 0.5;
+    float phase = float(radii.y) * (6.28318530718 / 65536.0);
+    vec2 drift = vec2(sin(phase * 34.0), cos(phase * 26.0)) * vec2(0.009, 0.006);
+    vec2 TexCoord = (vec2(screenUv.x, 1.0 - screenUv.y) - 0.5) * crop * 0.96 + 0.5 + drift;
+    if (radii.x == 0) {
+        OutColor = vec4(forestScene(TexCoord, phase), 1.0);
+        return;
+    }
     vec2 Size = (halfExtent + 1.0) * 2.0;
     vec2 FragCoord = localPos / Size + 0.5;
     vec4 Radius = vec4(float(radii.x & 255) * 0.5);
@@ -90,9 +112,9 @@ void main() {
     // кайма у кромки. ab — половина расщепления из drawLiquidGlass (aberration * 0.4).
     float ab = Aberration * 0.4;
     vec3 col;
-    col.r = texture(Sampler0, clamp(TexCoord + refractDir * (1.0 + ab), 0.0, 1.0)).r;
-    col.g = texture(Sampler0, clamp(TexCoord + refractDir,              0.0, 1.0)).g;
-    col.b = texture(Sampler0, clamp(TexCoord + refractDir * (1.0 - ab), 0.0, 1.0)).b;
+    col.r = forestScene(TexCoord + refractDir * (1.0 + ab), phase).r;
+    col.g = forestScene(TexCoord + refractDir, phase).g;
+    col.b = forestScene(TexCoord + refractDir * (1.0 - ab), phase).b;
 
     // Насыщение (порт) + вибранси тёмного стекла: чуть поднимаем насыщенность, чтобы
     // затемнённый фон «играл» сквозь дымку, как у iOS.

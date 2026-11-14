@@ -3,7 +3,6 @@ package com.orbitdlc.client;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import com.orbitdlc.client.module.Category;
 import com.orbitdlc.client.module.ModuleManager;
 import com.orbitdlc.client.module.PlannedModule;
 import net.fabricmc.loader.api.FabricLoader;
@@ -41,7 +40,7 @@ final class OrbitProfiles {
         var root = new JsonObject();
         root.addProperty("theme", OrbitTheme.current().name());
         var states = new JsonObject();
-        for (var module : modules.modules(Category.VISUALS)) {
+        for (var module : modules.modules()) {
             if (module instanceof PlannedModule) continue;
             var state = module.saveSettings();
             state.addProperty("enabled", module.isEnabled());
@@ -69,7 +68,7 @@ final class OrbitProfiles {
         var states = root.getAsJsonObject("modules");
         var rollback = new java.util.LinkedHashMap<com.orbitdlc.client.module.Module, JsonObject>();
         try {
-            for (var module : modules.modules(Category.VISUALS)) {
+            for (var module : modules.modules()) {
                 if (module instanceof PlannedModule || !states.has(module.id())) continue;
                 var state = states.getAsJsonObject(module.id());
                 var previous = module.saveSettings();

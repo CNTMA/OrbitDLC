@@ -17,12 +17,15 @@ public final class OrbitDLCClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(JumpCircles.INSTANCE::tick);
         VisualModules.registerShader(modules);
         ExtraVisuals.register(modules);
+        UtilityModules.register(modules);
         modules.register(Ambience.INSTANCE);
         ShaderSky.init();
         modules.register(ShaderSky.INSTANCE);
         modules.register(ShaderHand.INSTANCE);
         modules.register(Beautiful.INSTANCE);
         modules.register(CustomFog.INSTANCE);
+        modules.register(NoRender.INSTANCE);
+        modules.register(Viewmodel.INSTANCE);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> CustomFog.INSTANCE.close());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> Beautiful.INSTANCE.close());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ShaderHand.INSTANCE.close());
@@ -34,6 +37,7 @@ public final class OrbitDLCClient implements ClientModInitializer {
         guiHud.registerHud();
         HudDrag.register();
         OrbitBadges.register();
+        OrbitFriends.register();
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.gui.screen() != null
                     && client.gui.screen().getClass() == net.minecraft.client.gui.screens.TitleScreen.class) {
@@ -49,6 +53,7 @@ public final class OrbitDLCClient implements ClientModInitializer {
             }
         });
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+            LocalAccounts.load();
             var options = client.options;
             VisualModules.registerOptions(modules, options);
             modules.register(new com.orbitdlc.client.module.OptionModule<>("fullbright", com.orbitdlc.client.module.Category.VISUALS, "Maximum vanilla brightness", options.gamma(), 1.0));

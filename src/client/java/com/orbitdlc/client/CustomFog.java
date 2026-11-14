@@ -21,11 +21,11 @@ import java.util.Optional;
 
 public final class CustomFog extends Module {
     static final CustomFog INSTANCE = new CustomFog();
-    private static final int UNIFORM_BYTES = 96;
+    private static final int UNIFORM_BYTES = 112;
     private static final RenderPipeline PIPELINE = RenderPipelines.register(RenderPipeline.builder()
-            .withLocation(OrbitDLC.id("pipeline/beautiful"))
+            .withLocation(OrbitDLC.id("pipeline/custom_fog"))
             .withVertexShader(OrbitDLC.id("core/wet_world"))
-            .withFragmentShader(OrbitDLC.id("core/beautiful"))
+            .withFragmentShader(OrbitDLC.id("core/custom_fog"))
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .withColorTargetState(ColorTargetState.DEFAULT)
             .withCull(false)
@@ -36,6 +36,7 @@ public final class CustomFog extends Module {
             .build());
 
     private final Matrix4f inverseViewProjection = new Matrix4f();
+    private final long animationStart = System.nanoTime();
     private int density = 50;
     private VisualColor fogColor = VisualColor.ORIGINAL;
     private TextureTarget scene;
@@ -78,7 +79,11 @@ public final class CustomFog extends Module {
                     .putFloat(device.getDeviceInfo().isZZeroToOne() ? 1f : 0f);
             int tint = fogColor == VisualColor.ORIGINAL ? 0xAABACB : fogColor.rgb;
             data.putFloat((tint >> 16 & 255) / 255f).putFloat((tint >> 8 & 255) / 255f)
-                    .putFloat((tint & 255) / 255f).putFloat(density / 100f).flip();
+                    .putFloat((tint & 255) / 255f).putFloat(density / 100f);
+            double seconds = (System.nanoTime() - animationStart) * 1e-9;
+            data.putFloat((float) (seconds * 0.055 % Math.TAU))
+                    .putFloat((float) (seconds * 0.021 % Math.TAU))
+                    .putFloat((float) (seconds * 0.036 % Math.TAU)).putFloat(0f).flip();
 
             var encoder = device.createCommandEncoder();
             encoder.writeToBuffer(uniforms.slice(), data);

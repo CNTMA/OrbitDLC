@@ -34,7 +34,9 @@ public final class GlassBackdrop extends RoundedRectRenderState {
     private final RenderPipeline effect;
 
     private GlassBackdrop(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int corners, RenderPipeline effect) {
-        super(new Matrix3x2f(graphics.pose()), x, y, w, h, corners, corners, -1, -1, -1, -1, null);
+        super(new Matrix3x2f(graphics.pose()), x, y, w, h, corners,
+                effect == MENU ? (int) ((System.nanoTime() / 16_000_000L) & 65535) : corners,
+                -1, -1, -1, -1, graphics.scissorStack.peek());
         this.effect = effect;
         texture = TextureSetup.singleTexture(effect == MENU
                 ? Minecraft.getInstance().getTextureManager().getTexture(MainMenu.BACKGROUND).getTextureView()
@@ -53,9 +55,21 @@ public final class GlassBackdrop extends RoundedRectRenderState {
     }
 
     static void menu(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
+        if (width <= 0 || height <= 0 || !hasDrawableScissor(graphics)) return;
         int radius = Math.min(36, Math.min(width, height));
         graphics.guiRenderState.addGuiElement(new GlassBackdrop(
                 graphics, x, y, width, height, radius | radius << 8, MENU));
+    }
+
+    public static void menuBackground(GuiGraphicsExtractor graphics, int width, int height) {
+        if (width <= 0 || height <= 0 || !hasDrawableScissor(graphics)) return;
+        graphics.guiRenderState.addGuiElement(new GlassBackdrop(graphics, 0, 0, width, height, 0, MENU));
+    }
+
+    public static void menuSurface(GuiGraphicsExtractor graphics, int x, int y, int w, int h, boolean active, boolean hover) {
+        menu(graphics, x, y, w, h);
+        RoundedRectRenderState.submit(graphics, x, y, w, h, Math.min(12, h / 2),
+                !active ? 0x660B121C : hover ? OrbitTheme.tint(0x44) : 0x160B121C);
     }
     static void saturation(GuiGraphicsExtractor graphics) {
         submit(graphics, 0, 0, graphics.guiWidth(), graphics.guiHeight(), 0, SATURATION);
@@ -64,7 +78,7 @@ public final class GlassBackdrop extends RoundedRectRenderState {
     private static void submit(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int cornerRadius, RenderPipeline effect) {
         var main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
         var source = main.getColorTexture();
-        if (source == null || w <= 0 || h <= 0) return;
+        if (source == null || w <= 0 || h <= 0 || !hasDrawableScissor(graphics)) return;
         int width = source.getWidth(0);
         int height = source.getHeight(0);
         if (snapshot == null) {

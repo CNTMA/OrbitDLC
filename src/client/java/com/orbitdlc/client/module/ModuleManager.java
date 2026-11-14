@@ -18,4 +18,8 @@ public final class ModuleManager {
     public List<Module> modules(Category category) {
         return modules.values().stream().filter(module -> module.category() == category).toList();
     }
+
+    public List<Module> modules() {
+        return List.copyOf(modules.values());
+    }
 }

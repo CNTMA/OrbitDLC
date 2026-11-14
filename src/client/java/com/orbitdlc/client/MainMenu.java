@@ -14,7 +14,6 @@ import net.minecraft.network.chat.Component;
 
 public final class MainMenu extends Screen {
     static final net.minecraft.resources.Identifier BACKGROUND = OrbitDLC.id("textures/menu/singleplayer.png");
-    private static final float BACKGROUND_ASPECT = 736f / 412f;
     private final ModuleManager modules;
     private final KeyMapping shortcut;
     private final brokke.cc.util.animation.Animation entrance = new brokke.cc.util.animation.Animation();
@@ -36,7 +35,7 @@ public final class MainMenu extends Screen {
 
         int row = Math.clamp(height / 15, 20, 36);
         int gap = 6;
-        int stackHeight = 31 + 4 * row + 3 * gap;
+        int stackHeight = 31 + 5 * row + 4 * gap;
         top = Math.max(8, Math.min(height * 3 / 8, height - stackHeight - 12));
         int y = top + 31;
         add("menu.singleplayer", left, y, panelWidth, row,
@@ -46,7 +45,9 @@ public final class MainMenu extends Screen {
         multiplayer.active = minecraft.allowsMultiplayer();
         add("menu.options", left, y + 2 * (row + gap), panelWidth, row,
                 () -> minecraft.gui.setScreen(new OptionsScreen(this, minecraft.options)));
-        int lastY = y + 3 * (row + gap);
+        add("Account Switcher", left, y + 3 * (row + gap), panelWidth, row,
+                () -> minecraft.gui.setScreen(new AccountSwitcher(this)));
+        int lastY = y + 4 * (row + gap);
         int half = (panelWidth - gap) / 2;
         add("menu.quit", left, lastY, half, row, minecraft::stop);
         add("ClickGUI", left + half + gap, lastY, panelWidth - half - gap, row,
@@ -68,12 +69,7 @@ public final class MainMenu extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        float aspect = (float) width / height;
-        float visibleWidth = Math.min(1f, aspect / BACKGROUND_ASPECT);
-        float visibleHeight = Math.min(1f, BACKGROUND_ASPECT / aspect);
-        graphics.blit(BACKGROUND, 0, 0, width, height,
-                (1f - visibleWidth) / 2f, (1f + visibleWidth) / 2f,
-                (1f - visibleHeight) / 2f, (1f + visibleHeight) / 2f);
+        GlassBackdrop.menuBackground(graphics, width, height);
     }
 
     @Override

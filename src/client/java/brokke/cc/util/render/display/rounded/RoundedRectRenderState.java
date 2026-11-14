@@ -60,11 +60,17 @@ implements GuiElementRenderState {
 
     public static void submit(net.minecraft.client.gui.GuiGraphicsExtractor graphics,
                               int x, int y, int width, int height, int radius, int color) {
+        if (width <= 0 || height <= 0 || !hasDrawableScissor(graphics)) return;
         int packedRadius = Math.min(255, Math.min(radius * 2, Math.min(width, height)));
         int corners = packedRadius | packedRadius << 8;
         graphics.guiRenderState.addGuiElement(new RoundedRectRenderState(
                 new Matrix3x2f(graphics.pose()), x, y, width, height, corners, corners,
-                color, color, color, color, null));
+                color, color, color, color, graphics.scissorStack.peek()));
+    }
+
+    public static boolean hasDrawableScissor(net.minecraft.client.gui.GuiGraphicsExtractor graphics) {
+        var scissor = graphics.scissorStack.peek();
+        return scissor == null || scissor.width() > 0 && scissor.height() > 0;
     }
 
     public void buildVertices(VertexConsumer consumer) {
