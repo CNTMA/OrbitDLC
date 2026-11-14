@@ -5,12 +5,12 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.orbitdlc.client.module.Category;
 import com.orbitdlc.client.module.Module;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.HumanoidArm;
 import org.joml.Vector3f;
 
 import java.util.EnumMap;
 import java.util.Locale;
+import java.util.List;
 
 public final class Viewmodel extends Module {
     static final Viewmodel INSTANCE = new Viewmodel();
@@ -42,60 +42,77 @@ public final class Viewmodel extends Module {
         }
     }
 
-    private final EnumMap<Control, Integer> values = new EnumMap<>(Control.class);
+    private final EnumMap<Control, Integer> right = new EnumMap<>(Control.class);
+    private final EnumMap<Control, Integer> left = new EnumMap<>(Control.class);
+    private HumanoidArm editing = HumanoidArm.RIGHT;
 
     private Viewmodel() { super("viewmodel", Category.VISUALS); }
 
     @Override
     public String description() { return "Changes the scale, position and rotation of hands and held items."; }
 
-    private int value(Control control) { return values.getOrDefault(control, control.initial); }
+    private EnumMap<Control, Integer> profile(HumanoidArm arm) { return arm == HumanoidArm.RIGHT ? right : left; }
 
-    public static void transform(PoseStack pose) {
+    private int value(HumanoidArm arm, Control control) { return profile(arm).getOrDefault(control, control.initial); }
+
+    public static void transform(PoseStack pose, HumanoidArm arm) {
         var model = INSTANCE;
-        if (!model.isEnabled() || model.values.isEmpty()) return;
-        pose.translate(model.value(Control.X) / 100f, model.value(Control.Y) / 100f, model.value(Control.Z) / 100f);
+        if (!model.isEnabled() || model.profile(arm).isEmpty()) return;
+        pose.translate(model.value(arm, Control.X) / 100f, model.value(arm, Control.Y) / 100f, model.value(arm, Control.Z) / 100f);
         pose.translate(0f, 0f, -0.7f);
-        pose.rotateDegrees(Axis.YP, model.value(Control.YAW));
-        pose.rotateDegrees(Axis.XP, model.value(Control.PITCH));
-        pose.rotateDegrees(Axis.ZP, model.value(Control.ROLL));
-        float scale = model.value(Control.SCALE) / 100f;
+        pose.rotateDegrees(Axis.YP, model.value(arm, Control.YAW));
+        pose.rotateDegrees(Axis.XP, model.value(arm, Control.PITCH));
+        pose.rotateDegrees(Axis.ZP, model.value(arm, Control.ROLL));
+        float scale = model.value(arm, Control.SCALE) / 100f;
         pose.scale(scale, scale, scale);
         pose.translate(0f, 0f, 0.7f);
     }
 
     static void translateSwing(PoseStack pose, int side, float blend) {
         var model = INSTANCE;
+        var arm = side > 0 ? HumanoidArm.RIGHT : HumanoidArm.LEFT;
         float inward = 0.10f;
         float lift = 0.12f;
         if (model.isEnabled()) {
-            inward += Math.max(0f, side * model.value(Control.X) / 100f) * 0.65f;
-            lift += Math.max(0f, -model.value(Control.Y) / 100f) * 0.75f;
+            inward += Math.max(0f, side * model.value(arm, Control.X) / 100f) * 0.65f;
+            lift += Math.max(0f, -model.value(arm, Control.Y) / 100f) * 0.75f;
         }
         var offset = new Vector3f(-side * inward, lift, -0.17f).mul(blend);
         if (model.isEnabled()) {
             // Convert the camera-relative motion to the transformed Viewmodel axes.
-            offset.rotateY((float) Math.toRadians(-model.value(Control.YAW)))
-                    .rotateX((float) Math.toRadians(-model.value(Control.PITCH)))
-                    .rotateZ((float) Math.toRadians(-model.value(Control.ROLL)))
-                    .mul(100f / model.value(Control.SCALE));
+            offset.rotateY((float) Math.toRadians(-model.value(arm, Control.YAW)))
+                    .rotateX((float) Math.toRadians(-model.value(arm, Control.PITCH)))
+                    .rotateZ((float) Math.toRadians(-model.value(arm, Control.ROLL)))
+                    .mul(100f / model.value(arm, Control.SCALE));
         }
         pose.translate(offset.x, offset.y, offset.z);
     }
 
     @Override
     public JsonObject saveSettings() {
-        var settings = super.saveSettings();
-        values.forEach((control, value) -> settings.addProperty(control.key(), value));
+        var settings = new JsonObject();
+        settings.add("right", saveProfile(right));
+        settings.add("left", saveProfile(left));
+        return settings;
+    }
+
+    private static JsonObject saveProfile(EnumMap<Control, Integer> profile) {
+        var settings = new JsonObject();
+        profile.forEach((control, value) -> settings.addProperty(control.key(), value));
         return settings;
     }
 
     @Override
     public void loadSettings(JsonObject settings) {
-        values.clear();
+        loadProfile(right, settings.has("right") ? settings.getAsJsonObject("right") : settings);
+        loadProfile(left, settings.has("left") ? settings.getAsJsonObject("left") : settings);
+    }
+
+    private static void loadProfile(EnumMap<Control, Integer> profile, JsonObject settings) {
+        profile.clear();
         for (var control : Control.values()) {
             if (settings.has(control.key())) {
-                values.put(control, Math.clamp(settings.get(control.key()).getAsInt(), control.min, control.max));
+                profile.put(control, Math.clamp(settings.get(control.key()).getAsInt(), control.min, control.max));
             }
         }
     }
@@ -104,9 +121,12 @@ public final class Viewmodel extends Module {
         return new ModuleSettings("Viewmodel", parent) {
             @Override
             protected void init() {
+                int row = choicesAt(List.of("Right", "Left"),
+                        index -> editing == (index == 0 ? HumanoidArm.RIGHT : HumanoidArm.LEFT),
+                        index -> editing = index == 0 ? HumanoidArm.RIGHT : HumanoidArm.LEFT, 0) + 4;
                 for (var control : Control.values()) {
-                    slider(control.key(), "", control.ordinal() * 24, control.min, control.max,
-                            () -> value(control), value -> values.put(control, value));
+                    slider(control.label, "", row + control.ordinal() * 24, control.min, control.max,
+                            () -> value(editing, control), value -> profile(editing).put(control, value));
                 }
             }
         };
