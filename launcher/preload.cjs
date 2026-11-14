@@ -1,7 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('orbit', {
-  launch: () => ipcRenderer.invoke('orbit:launch'),
-  onStatus: (callback) => ipcRenderer.on('orbit:status', (_event, status) => callback(status)),
-  onOutput: (callback) => ipcRenderer.on('orbit:output', (_event, output) => callback(output))
+  launch: (username) => ipcRenderer.invoke('orbit:launch', username),
+  windowAction: (action) => ipcRenderer.invoke('orbit:window', action),
+  openFolder: () => ipcRenderer.invoke('orbit:folder'),
+  openModsFolder: () => ipcRenderer.invoke('orbit:mods-folder'),
+  mods: () => ipcRenderer.invoke('orbit:mods'),
+  onStatus: (callback) => ipcRenderer.on('orbit:status', (_event, status) => callback(status))
 });

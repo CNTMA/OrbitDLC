@@ -1,9 +1,14 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const { spawn } = require('node:child_process');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const fs = require('node:fs/promises');
+const { spawn, execFileSync } = require('node:child_process');
 const { existsSync } = require('node:fs');
+const { prepareFabric } = require('./fabric.cjs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
+const dataDirectory = process.env.ORBITVISUALS_DATA || __dirname;
+const instance = path.join(dataDirectory, 'instance');
+const mods = path.join(instance, 'mods');
 let game;
 let window;
 let status = { kind: 'ready', message: 'Готов к запуску' };
@@ -16,49 +21,73 @@ function publish(kind, message) {
 
 function log(chunk) {
   output = (output + chunk).slice(-16000);
-  if (window && !window.isDestroyed()) window.webContents.send('orbit:output', output);
 }
 
-function launch() {
+function javaExecutable() {
+  const candidates = [
+    process.env.JAVA_HOME && path.join(process.env.JAVA_HOME, 'bin', 'java.exe'),
+    'C:\\Program Files\\Java\\jdk-25\\bin\\java.exe',
+    'java.exe'
+  ].filter(Boolean);
+  for (const java of new Set(candidates)) {
+    if (path.isAbsolute(java) && !existsSync(java)) continue;
+    try {
+      const version = execFileSync(java, ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
+      if (/^(?:java|openjdk) 25(?:[.\s+-]|$)/m.test(version)) return java;
+    } catch { /* Try the next installed runtime. */ }
+  }
+  throw new Error('Для Minecraft 26.3 установи Java 25 и укажи её в JAVA_HOME');
+}
+
+async function launch(username) {
   if (game) return;
-  if (!existsSync(path.join(root, 'gradlew.bat'))) {
-    publish('error', 'Gradle Wrapper не найден');
-    return;
-  }
-  const env = { ...process.env };
-  const bundledLocation = 'C:\\Program Files\\Java\\jdk-25';
-  if (!env.JAVA_HOME && existsSync(path.join(bundledLocation, 'bin', 'java.exe'))) {
-    env.JAVA_HOME = bundledLocation;
-  }
-  publish('starting', 'Подготовка Minecraft…');
+  game = true;
+  publish('starting', 'Подготовка Fabric…');
   output = '';
-  log('');
-  game = spawn(process.env.ComSpec || 'cmd.exe',
-    ['/d', '/c', 'gradlew.bat runClient --console=plain'],
-    { cwd: root, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-  game.stdout.setEncoding('utf8');
-  game.stderr.setEncoding('utf8');
-  const handleOutput = (chunk) => {
-    log(chunk);
-    if (status.kind === 'starting' && /Sound engine started|Created:.*textures\/atlas/.test(output)) {
-      publish('running', 'Клиент запущен');
-    }
-  };
-  game.stdout.on('data', handleOutput);
-  game.stderr.on('data', handleOutput);
-  game.once('error', (error) => {
-    log(error.message);
-    publish('error', 'Не удалось запустить Gradle');
-  });
-  game.once('close', (code) => {
-    game = undefined;
-    if (status.kind === 'error') return;
-    if (code === 0) publish('ready', 'Игра закрыта');
-    else publish('error', 'Minecraft завершился с ошибкой');
+  try {
+    const java = javaExecutable();
+    const cache = process.env.APPDATA && path.join(process.env.APPDATA, '.minecraft');
+    const { instance, args } = await prepareFabric(__dirname, cache, username,
+      progress => publish('starting', progress.trim()), instance);
+    const argumentFile = path.join(instance, 'launch.args');
+    await fs.writeFile(argumentFile, args.map(arg => '"' + arg.replaceAll('\\', '\\\\').replaceAll('"', '\\"') + '"').join('\n'));
+    log('Запуск Minecraft 26.3 · Fabric…\n');
+    const code = await new Promise((resolve, reject) => {
+      const client = spawn(java, ['@' + argumentFile], {
+        cwd: instance, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true
+      });
+      client.stdout.setEncoding('utf8').on('data', chunk => {
+        log(chunk);
+        if (status.kind === 'starting' && /Sound engine started|Created:.*textures\/atlas/.test(output)) {
+          publish('running', 'Minecraft запущен');
+        }
+      });
+      client.stderr.setEncoding('utf8').on('data', log);
+      client.once('error', reject);
+      client.once('close', resolve);
+    });
+    if (code !== 0) throw new Error(`Minecraft завершился с кодом ${code}`);
+    publish('ready', 'Игра закрыта');
+  } catch (error) {
+    publish('error', error.message);
+  } finally {
+    game = false;
+  }
+}
+
+function handle(channel, action) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (window && event.sender === window.webContents) return action(...args);
   });
 }
 
-app.setPath('userData', path.join(root, 'build', 'orbit-launcher'));
+async function openFolder(folder) {
+  await fs.mkdir(folder, { recursive: true });
+  const error = await shell.openPath(folder);
+  if (error) throw new Error(error);
+}
+
+app.setPath('userData', path.join(dataDirectory, 'app-data'));
 app.whenReady().then(() => {
   window = new BrowserWindow({
     width: 1000,
@@ -66,6 +95,7 @@ app.whenReady().then(() => {
     minWidth: 710,
     minHeight: 540,
     title: 'OrbitVisuals',
+    frame: false,
     backgroundColor: '#101f26',
     autoHideMenuBar: true,
     icon: path.join(root, 'src/main/resources/assets/orbitdlc/black_hole.png'),
@@ -79,8 +109,24 @@ app.whenReady().then(() => {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.once('closed', () => { window = undefined; });
   window.webContents.on('will-navigate', (event) => event.preventDefault());
-  ipcMain.handle('orbit:launch', (event) => {
-    if (window && event.sender === window.webContents) launch();
+  handle('orbit:launch', launch);
+  handle('orbit:window', (action) => {
+    if (action === 'close') window.close();
+    if (action === 'minimize') window.minimize();
+    if (action === 'maximize') {
+      if (window.isMaximized()) window.unmaximize();
+      else window.maximize();
+    }
+  });
+  handle('orbit:folder', () => openFolder(instance));
+  handle('orbit:mods-folder', () => openFolder(mods));
+  handle('orbit:mods', async () => {
+    const entries = await fs.readdir(mods, { withFileTypes: true }).catch(error => {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    });
+    return entries.filter(entry => entry.isFile() && /\.jar$/i.test(entry.name))
+      .map(entry => entry.name).sort((a, b) => a.localeCompare(b));
   });
   window.loadFile(path.join(__dirname, 'index.html'));
 });

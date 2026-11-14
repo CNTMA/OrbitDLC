@@ -1,6 +1,6 @@
 # OrbitVisuals Launcher
 
-Windows-лаунчер для запуска Minecraft 26.3 с OrbitDLC из этого репозитория. Кнопка «Играть» запускает проект через Gradle Wrapper. При первом запуске Gradle может загрузить зависимости и ресурсы игры.
+Windows-лаунчер запускает Minecraft 26.3 с Fabric и OrbitVisuals напрямую. При первом запуске он скачивает недостающие библиотеки и ресурсы. Для входа используется локальный ник.
 
 На Windows открой `Start OrbitVisuals.cmd`. Для запуска из терминала используй команды из корня OrbitDLC:
 
@@ -10,4 +10,4 @@ npm.cmd ci
 npm.cmd start
 ```
 
-Нужны Node.js и JDK 25. Лаунчер использует `JAVA_HOME`, либо ищет JDK 25 в `C:\Program Files\Java\jdk-25`.
+Нужны Node.js и Java 25. Готовые JAR-файлы OrbitVisuals и Fabric API лежат в `launcher/bundled-mods`. Миры, моды и настройки хранятся в отдельной папке `launcher/instance`. Серверы с обязательной проверкой Microsoft-аккаунта требуют авторизованную сессию.
