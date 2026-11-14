@@ -27,43 +27,48 @@ public final class SwingAnimations extends Module {
     }
 
     private void apply(PoseStack pose, float progress, int side) {
-        float swing = (float) Math.sin(progress * Math.PI);
+        float phase = Math.clamp(progress, 0f, 1f);
+        float swing = (float) Math.sin(phase * Math.PI);
+        float transition = Math.clamp(Math.min(phase, 1f - phase) / 0.18f, 0f, 1f);
+        float blend = transition * transition * (3f - 2f * transition);
         float power = intensity * 10f;
         boolean fifth = mode == 5;
-        pose.translate(side * (fifth ? 0.5f : 0.72f), -0.5f, fifth ? -0.72f : -1f);
-        if (!fifth) pose.rotateDegrees(Axis.XP, -tip);
+        // In 26.3 the renderer has already positioned the item before applying its swing.
+        pose.translate(side * ((fifth ? 0.5f : 0.72f) - 0.56f) * blend,
+                0.02f * blend, (fifth ? 0f : -0.28f) * blend);
+        if (!fifth) pose.rotateDegrees(Axis.XP, (-tip) * blend);
 
         switch (mode) {
             case 1 -> {
-                pose.rotateDegrees(Axis.YP, side * 90f);
-                pose.rotateDegrees(Axis.ZP, side * -70f);
-                pose.rotateDegrees(Axis.XP, -angle - power * swing);
+                pose.rotateDegrees(Axis.YP, (side * 90f) * blend);
+                pose.rotateDegrees(Axis.ZP, (side * -70f) * blend);
+                pose.rotateDegrees(Axis.XP, (-angle - power * swing) * blend);
             }
             case 2 -> {
-                pose.rotateDegrees(Axis.YP, side * 90f);
-                pose.rotateDegrees(Axis.ZP, side * -65f);
-                pose.rotateDegrees(Axis.XP, -65f + power * swing);
+                pose.rotateDegrees(Axis.YP, (side * 90f) * blend);
+                pose.rotateDegrees(Axis.ZP, (side * -65f) * blend);
+                pose.rotateDegrees(Axis.XP, (-65f + power * swing) * blend);
             }
             case 3 -> {
-                pose.rotateDegrees(Axis.YP, side * -90f);
-                pose.rotateDegrees(Axis.ZP, side * 60f);
-                pose.rotateDegrees(Axis.XP, 30f);
-                pose.rotateDegrees(Axis.ZP, side * power * swing);
+                pose.rotateDegrees(Axis.YP, (side * -90f) * blend);
+                pose.rotateDegrees(Axis.ZP, (side * 60f) * blend);
+                pose.rotateDegrees(Axis.XP, (30f) * blend);
+                pose.rotateDegrees(Axis.ZP, (side * power * swing) * blend);
             }
             case 4 -> {
-                pose.rotateDegrees(Axis.YP, side * 90f);
-                pose.rotateDegrees(Axis.ZP, side * -75f);
-                pose.rotateDegrees(Axis.XP, -45f - power * swing);
-                pose.rotateDegrees(Axis.YP, side * power * swing * 0.5f);
+                pose.rotateDegrees(Axis.YP, (side * 90f) * blend);
+                pose.rotateDegrees(Axis.ZP, (side * -75f) * blend);
+                pose.rotateDegrees(Axis.XP, (-45f - power * swing) * blend);
+                pose.rotateDegrees(Axis.YP, (side * power * swing * 0.5f) * blend);
             }
             case 5 -> {
                 float strength = power / 80f;
                 float squaredSwing = swing * swing;
-                float twist = (float) Math.sin(progress * progress * Math.PI);
-                pose.rotateDegrees(Axis.YP, side * (45f - twist * 20f * strength));
-                pose.rotateDegrees(Axis.ZP, side * squaredSwing * -22f * strength);
-                pose.rotateDegrees(Axis.XP, squaredSwing * -85f * strength);
-                pose.rotateDegrees(Axis.YP, side * -45f);
+                float twist = (float) Math.sin(phase * phase * Math.PI);
+                pose.rotateDegrees(Axis.YP, (side * (45f - twist * 20f * strength)) * blend);
+                pose.rotateDegrees(Axis.ZP, (side * squaredSwing * -22f * strength) * blend);
+                pose.rotateDegrees(Axis.XP, (squaredSwing * -85f * strength) * blend);
+                pose.rotateDegrees(Axis.YP, (side * -45f) * blend);
             }
         }
     }
